@@ -630,3 +630,16 @@ main {
   pointer-events: none;
   transform: translateX(-50%) translateY(10px);
 }
+
+.mic-check-status {
+  margin-top: 10px;
+  min-height: 16px;
+}
+
+.mic-check-status.status-ok {
+  color: var(--green);
+}
+
+.mic-check-status.status-error {
+  color: var(--red);
+}

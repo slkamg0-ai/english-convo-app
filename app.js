@@ -80,6 +80,62 @@ voiceTestBtn.addEventListener("click", () => {
   speak("Hi! This is what I sound like. Nice to meet you.");
 });
 
+// ---- Mic permission check ----
+// The Web Speech API has no way to pick which microphone device to use (OS
+// default only) — this just surfaces whether mic access is granted at all,
+// so the user isn't surprised by a permission popup once they're mid-scenario.
+const micCheckBtn = document.getElementById("mic-check-btn");
+const micCheckStatusEl = document.getElementById("mic-check-status");
+
+async function checkMicAccess() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    micCheckStatusEl.textContent = "❌ 이 브라우저는 마이크 접근을 지원하지 않습니다. 텍스트로 입력해주세요.";
+    micCheckStatusEl.className = "note mic-check-status status-error";
+    return;
+  }
+
+  micCheckStatusEl.textContent = "확인 중...";
+  micCheckStatusEl.className = "note mic-check-status";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    micCheckStatusEl.textContent = "✅ 마이크 사용 가능합니다. 상황극에서 바로 말씀하시면 돼요.";
+    micCheckStatusEl.className = "note mic-check-status status-ok";
+  } catch (err) {
+    if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+      micCheckStatusEl.textContent = "❌ 마이크 권한이 거부되었습니다. 브라우저 주소창 옆 자물쇠 아이콘에서 마이크 권한을 허용해주세요.";
+    } else if (err.name === "NotFoundError") {
+      micCheckStatusEl.textContent = "❌ 연결된 마이크를 찾을 수 없습니다. 텍스트로 입력하셔도 됩니다.";
+    } else {
+      micCheckStatusEl.textContent = `❌ 마이크 확인 중 오류가 발생했습니다: ${err.message}`;
+    }
+    micCheckStatusEl.className = "note mic-check-status status-error";
+  }
+}
+
+micCheckBtn.addEventListener("click", checkMicAccess);
+
+// If the browser already knows the permission state (Chrome supports this),
+// show it without prompting the user.
+if (navigator.permissions && navigator.permissions.query) {
+  navigator.permissions
+    .query({ name: "microphone" })
+    .then((status) => {
+      if (status.state === "granted") {
+        micCheckStatusEl.textContent = "✅ 마이크 권한이 이미 허용되어 있습니다.";
+        micCheckStatusEl.className = "note mic-check-status status-ok";
+      } else if (status.state === "denied") {
+        micCheckStatusEl.textContent = "❌ 마이크 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.";
+        micCheckStatusEl.className = "note mic-check-status status-error";
+      }
+    })
+    .catch(() => {
+      // Permissions API doesn't support querying "microphone" on this browser
+      // (e.g. Safari) — the user just uses the check button instead.
+    });
+}
+
 function speak(text) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
