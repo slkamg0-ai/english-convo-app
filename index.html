@@ -14,7 +14,9 @@
       <button class="tab-btn" data-tab="curriculum">200일 코스</button>
       <button class="tab-btn" data-tab="roleplay">상황극</button>
       <button class="tab-btn" data-tab="flashcards">단어 카드</button>
+      <button class="tab-btn" data-tab="progress">내 성과</button>
     </nav>
+    <div id="header-stats" class="header-stats"></div>
   </header>
 
   <main>
@@ -133,12 +135,53 @@
         <button id="flash-reset" class="link-btn">전체 초기화</button>
       </div>
     </section>
+
+    <section id="progress" class="tab-panel">
+      <div class="card progress-hero">
+        <div class="progress-level-row">
+          <div class="progress-level-badge" id="progress-level-badge">Lv.1</div>
+          <div>
+            <h2 id="progress-level-title">새싹 학습자</h2>
+            <p class="note" id="progress-xp-text"></p>
+          </div>
+        </div>
+        <div class="curriculum-progress-bar">
+          <div id="progress-xp-fill" class="curriculum-progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="progress-stat-grid">
+          <div class="progress-stat">
+            <span class="progress-stat-value" id="progress-streak">0</span>
+            <span class="progress-stat-label">🔥 연속 학습일</span>
+          </div>
+          <div class="progress-stat">
+            <span class="progress-stat-value" id="progress-longest-streak">0</span>
+            <span class="progress-stat-label">최장 스트릭</span>
+          </div>
+          <div class="progress-stat">
+            <span class="progress-stat-value" id="progress-total">0</span>
+            <span class="progress-stat-label">총 학습 활동</span>
+          </div>
+        </div>
+        <p id="progress-streak-nudge" class="note"></p>
+      </div>
+
+      <div class="card">
+        <h2>뱃지</h2>
+        <div id="badge-grid" class="badge-grid"></div>
+      </div>
+    </section>
   </main>
+
+  <div id="toast" class="toast hidden"></div>
 
   <script src="scenarios.js"></script>
   <script src="flashcards.js"></script>
   <script src="curriculum-data.js"></script>
   <script src="roleplay-data.js"></script>
+  <script src="progress.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

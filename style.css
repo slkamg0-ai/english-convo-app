@@ -500,3 +500,133 @@ main {
   background: #fff;
   color: var(--text);
 }
+
+.header-stats {
+  margin-top: 10px;
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.header-stats span strong {
+  color: #fff;
+}
+
+.progress-hero {
+  background: linear-gradient(135deg, var(--navy), var(--teal));
+  border: none;
+}
+
+.progress-hero h2,
+.progress-hero .note {
+  color: #fff;
+}
+
+.progress-hero .note {
+  opacity: 0.85;
+}
+
+.progress-level-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.progress-level-badge {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  border-radius: 999px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.progress-hero .curriculum-progress-bar {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.progress-hero .curriculum-progress-fill {
+  background: #fff;
+}
+
+.progress-stat-grid {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.progress-stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.progress-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.badge-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.badge-item.unlocked {
+  border-color: var(--teal);
+  background: #eef7fb;
+  color: var(--navy);
+}
+
+.badge-item .badge-icon {
+  font-size: 26px;
+  display: block;
+  margin-bottom: 4px;
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.badge-item.unlocked .badge-icon {
+  filter: none;
+  opacity: 1;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--navy);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.toast.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(10px);
+}

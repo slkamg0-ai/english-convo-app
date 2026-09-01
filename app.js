@@ -5,6 +5,7 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 function showTab(name) {
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === name));
   tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === name));
+  if (name === "progress") renderProgressTab();
 }
 
 tabButtons.forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.tab)));
@@ -174,6 +175,7 @@ function renderNode() {
     micBtn.classList.add("hidden");
     hintBtn.classList.add("hidden");
     scenarioEndEl.classList.remove("hidden");
+    handleActivityResult(recordActivity(`roleplay:${currentScenarioKey}`, 8, "roleplay"));
   } else {
     micBtn.classList.remove("hidden");
     hintBtn.classList.remove("hidden");
@@ -334,6 +336,7 @@ document.getElementById("flash-know").addEventListener("click", () => {
   knownCards.add(cardIndex);
   saveKnownCards();
   dueCards = dueCards.filter((i) => i !== cardIndex);
+  handleActivityResult(recordActivity(`flashcard:${cardIndex}`, 5, "flashcard"));
   renderFlashcard();
 });
 
@@ -443,6 +446,7 @@ function renderCurriculumDay() {
         card.classList.add("completed");
         card.querySelector(".curriculum-card-header span:last-child").textContent = "✅ 완료";
         saveCurrState();
+        handleActivityResult(recordActivity(`curriculum:${scenario.id}`, 10, "curriculum"));
         renderCurriculumDay();
       } else {
         feedbackEl.className = "curriculum-card-feedback incorrect";
@@ -478,3 +482,69 @@ document.getElementById("curr-jump-today").addEventListener("click", () => {
 });
 
 renderCurriculumDay();
+
+// ================= Gamification (XP, streaks, badges) =================
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+
+function showToast(message) {
+  toastEl.textContent = message;
+  toastEl.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 2600);
+}
+
+function handleActivityResult(result) {
+  if (!result.awarded) return;
+  renderHeaderStats();
+  const messages = [`✨ +${result.xpAmount} XP`];
+  result.newlyUnlocked.forEach((badge) => messages.push(`${badge.icon} 뱃지 획득: ${badge.label}`));
+  showToast(messages.join("  "));
+}
+
+function renderHeaderStats() {
+  const summary = getProgressSummary();
+  const headerStatsEl = document.getElementById("header-stats");
+  headerStatsEl.innerHTML = `
+    <span>Lv.${summary.level} <strong>${summary.levelTitle}</strong></span>
+    <span>🔥 <strong>${summary.currentStreak}</strong>일 연속</span>
+    <span>✨ <strong>${summary.xp}</strong> XP</span>
+  `;
+}
+
+function renderProgressTab() {
+  const summary = getProgressSummary();
+
+  document.getElementById("progress-level-badge").textContent = `Lv.${summary.level}`;
+  document.getElementById("progress-level-title").textContent = summary.levelTitle;
+  document.getElementById("progress-xp-text").textContent =
+    `${summary.xpIntoLevel} / ${summary.xpForNextLevel} XP · 다음 레벨까지 ${summary.xpForNextLevel - summary.xpIntoLevel} XP`;
+  document.getElementById("progress-xp-fill").style.width =
+    `${Math.min(100, (summary.xpIntoLevel / summary.xpForNextLevel) * 100)}%`;
+
+  document.getElementById("progress-streak").textContent = summary.currentStreak;
+  document.getElementById("progress-longest-streak").textContent = summary.longestStreak;
+  document.getElementById("progress-total").textContent = summary.totalActivities;
+
+  const nudgeEl = document.getElementById("progress-streak-nudge");
+  if (summary.currentStreak > 0 && !isStreakActiveToday()) {
+    nudgeEl.textContent = `⏰ 오늘 아직 학습 안 하셨어요! 스트릭이 끊기기 전에 하나만 풀어보세요.`;
+  } else if (summary.currentStreak === 0) {
+    nudgeEl.textContent = `오늘부터 학습을 시작해서 스트릭을 쌓아보세요!`;
+  } else {
+    nudgeEl.textContent = `오늘도 학습 완료! 내일도 이어가 볼까요?`;
+  }
+
+  const badgeGridEl = document.getElementById("badge-grid");
+  badgeGridEl.innerHTML = "";
+  BADGE_DEFS.forEach((badge) => {
+    const unlocked = summary.unlockedBadges.includes(badge.id);
+    const el = document.createElement("div");
+    el.className = `badge-item${unlocked ? " unlocked" : ""}`;
+    el.innerHTML = `<span class="badge-icon">${badge.icon}</span>${badge.label}`;
+    el.title = badge.desc;
+    badgeGridEl.appendChild(el);
+  });
+}
+
+renderHeaderStats();
