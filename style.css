@@ -210,6 +210,18 @@ main {
   font-weight: 600;
 }
 
+.npc-text-ko {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--teal) !important;
+  margin: -6px 0 10px 0 !important;
+}
+
+.hint-text-ko {
+  color: var(--teal);
+  margin-top: 4px;
+}
+
 .icon-btn {
   background: #fff;
   border: 1px solid var(--border);
@@ -361,6 +373,12 @@ main {
   opacity: 0.9;
 }
 
+.flash-example-ko {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
 .flash-actions {
   display: flex;
   gap: 10px;
@@ -448,6 +466,17 @@ main {
   margin: 6px 0;
 }
 
+.curriculum-card-npc-ko {
+  font-size: 13px;
+  color: var(--teal);
+  margin: -2px 0 6px 0;
+}
+
+.curriculum-card-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
 .curriculum-card-row {
   display: flex;
   gap: 8px;
@@ -483,6 +512,12 @@ main {
   font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
+}
+
+.curriculum-card-answer-ko {
+  font-size: 12px;
+  color: var(--teal);
+  margin-top: 2px;
 }
 
 .voice-select-row {

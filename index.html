@@ -86,7 +86,11 @@
         <div class="npc-line">
           <span class="npc-label">직원/상대방</span>
           <p id="npc-text"></p>
-          <button id="replay-npc" class="icon-btn" title="다시 듣기">🔊 다시 듣기</button>
+          <p id="npc-text-ko" class="npc-text-ko hidden"></p>
+          <div class="curriculum-card-btn-row">
+            <button id="replay-npc" class="icon-btn" title="다시 듣기">🔊 다시 듣기</button>
+            <button id="translate-npc" class="icon-btn">🇰🇷 해석 보기</button>
+          </div>
         </div>
 
         <div class="user-turn">
@@ -107,6 +111,7 @@
         <div class="hint-row">
           <button id="hint-btn" class="link-btn">💡 예문 힌트 보기</button>
           <p id="hint-text" class="hint-text hidden"></p>
+          <p id="hint-text-ko" class="hint-text hint-text-ko hidden"></p>
         </div>
 
         <div id="scenario-end" class="scenario-end hidden">
@@ -131,6 +136,7 @@
             <div class="flashcard-face flashcard-back">
               <p id="flash-back-text"></p>
               <p id="flash-example-text" class="flash-example"></p>
+              <p id="flash-example-ko-text" class="flash-example-ko"></p>
             </div>
           </div>
         </div>

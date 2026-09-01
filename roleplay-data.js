@@ -14,6 +14,13 @@ const CLOSING_LINES = [
   "Sounds good, thanks for letting me know.",
 ];
 
+const CLOSING_LINES_KO = [
+  "완벽해요, 감사합니다!",
+  "알겠습니다, 감사합니다.",
+  "좋아요, 그렇게 할게요.",
+  "좋습니다, 알려주셔서 감사해요.",
+];
+
 function extractKeywords(item) {
   return item
     .replace(/^(a |an |the )/i, "")
@@ -29,19 +36,25 @@ function buildGeneratedScenarios() {
       if (!item) return;
       const key = `${cat.id}_${variantIndex + 1}`;
       const answer = cat.template(item);
-      const closing = CLOSING_LINES[variantIndex % CLOSING_LINES.length];
+      const answerKo = cat.answersKo[itemIndex];
+      const closingIndex = variantIndex % CLOSING_LINES.length;
+      const closing = CLOSING_LINES[closingIndex];
+      const closingKo = CLOSING_LINES_KO[closingIndex];
 
       generated[key] = {
         title: `${cat.title} ${variantIndex + 1}`,
         description: cat.npc,
+        descriptionKo: cat.npcKo,
         startNode: "start",
         nodes: {
           start: {
             npc: cat.npc,
+            npcKo: cat.npcKo,
             options: [
               {
                 keywords: extractKeywords(item),
                 hint: answer,
+                hintKo: answerKo,
                 feedback: "좋아요, 자연스러운 답변이에요.",
                 next: "end",
               },
@@ -49,6 +62,7 @@ function buildGeneratedScenarios() {
           },
           end: {
             npc: closing,
+            npcKo: closingKo,
             options: [],
           },
         },

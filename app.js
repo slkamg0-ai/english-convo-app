@@ -170,6 +170,9 @@ const scenarioSelectEl = document.getElementById("scenario-select");
 const scenarioPlayEl = document.getElementById("scenario-play");
 const scenarioTitleEl = document.getElementById("scenario-title");
 const npcTextEl = document.getElementById("npc-text");
+const npcTextKoEl = document.getElementById("npc-text-ko");
+const translateNpcBtn = document.getElementById("translate-npc");
+const hintTextKoEl = document.getElementById("hint-text-ko");
 const micBtn = document.getElementById("mic-btn");
 const micStatusEl = document.getElementById("mic-status");
 const transcriptEl = document.getElementById("transcript");
@@ -220,10 +223,13 @@ function renderNode() {
   const scenario = SCENARIOS[currentScenarioKey];
   const node = scenario.nodes[currentNodeKey];
   npcTextEl.textContent = node.npc;
+  npcTextKoEl.textContent = node.npcKo || "";
+  npcTextKoEl.classList.add("hidden");
   speak(node.npc);
   transcriptEl.textContent = "";
   feedbackBoxEl.classList.add("hidden");
   hintTextEl.classList.add("hidden");
+  hintTextKoEl.classList.add("hidden");
   nextBtn.classList.add("hidden");
   pendingOption = null;
 
@@ -244,12 +250,22 @@ replayNpcBtn.addEventListener("click", () => {
   if (scenario) speak(scenario.nodes[currentNodeKey].npc);
 });
 
+translateNpcBtn.addEventListener("click", () => {
+  npcTextKoEl.classList.toggle("hidden");
+});
+
 hintBtn.addEventListener("click", () => {
   const scenario = SCENARIOS[currentScenarioKey];
   const node = scenario.nodes[currentNodeKey];
-  const hint = node.options[0] ? node.options[0].hint : "";
+  const option = node.options[0];
+  const hint = option ? option.hint : "";
+  const hintKo = option ? option.hintKo : "";
   hintTextEl.textContent = `예문: "${hint}"`;
   hintTextEl.classList.remove("hidden");
+  if (hintKo) {
+    hintTextKoEl.textContent = `해석: "${hintKo}"`;
+    hintTextKoEl.classList.remove("hidden");
+  }
 });
 
 function matchOption(transcript, node) {
@@ -349,6 +365,7 @@ const flashcardEl = document.getElementById("flashcard");
 const flashFrontTextEl = document.getElementById("flash-front-text");
 const flashBackTextEl = document.getElementById("flash-back-text");
 const flashExampleTextEl = document.getElementById("flash-example-text");
+const flashExampleKoTextEl = document.getElementById("flash-example-ko-text");
 const flashCountEl = document.getElementById("flash-count");
 const flashKnownCountEl = document.getElementById("flash-known-count");
 const flashSpeakBtn = document.getElementById("flash-speak");
@@ -363,6 +380,7 @@ function renderFlashcard() {
     flashFrontTextEl.textContent = "🎉 전부 외웠습니다!";
     flashBackTextEl.textContent = "";
     flashExampleTextEl.textContent = "";
+    flashExampleKoTextEl.textContent = "";
     flashCountEl.textContent = "복습할 카드 없음";
     flashKnownCountEl.textContent = `외운 단어: ${knownCards.size} / ${FLASHCARDS.length}`;
     return;
@@ -372,6 +390,7 @@ function renderFlashcard() {
   flashFrontTextEl.textContent = card.front;
   flashBackTextEl.textContent = card.back;
   flashExampleTextEl.textContent = card.example;
+  flashExampleKoTextEl.textContent = card.exampleKo || "";
   flashCountEl.textContent = `${(flashIndex % dueCards.length) + 1} / ${dueCards.length}`;
   flashKnownCountEl.textContent = `외운 단어: ${knownCards.size} / ${FLASHCARDS.length}`;
 }
@@ -472,22 +491,33 @@ function renderCurriculumDay() {
         <span>${done ? "✅ 완료" : ""}</span>
       </div>
       <p class="curriculum-card-npc">${scenario.npc}</p>
-      <button class="icon-btn curr-speak-btn" type="button">🔊 들어보기</button>
+      <p class="curriculum-card-npc-ko hidden">${scenario.npcKo}</p>
+      <div class="curriculum-card-btn-row">
+        <button class="icon-btn curr-speak-btn" type="button">🔊 들어보기</button>
+        <button class="icon-btn curr-translate-btn" type="button">🇰🇷 해석 보기</button>
+      </div>
       <div class="curriculum-card-row">
         <input type="text" class="curr-answer-input" placeholder="영어로 답해보세요" />
         <button class="secondary-btn curr-check-btn" type="button">확인</button>
       </div>
       <div class="curriculum-card-feedback hidden"></div>
       <p class="curriculum-card-answer hidden">모범 답안: "${scenario.answer}"</p>
+      <p class="curriculum-card-answer-ko hidden">해석: "${scenario.answerKo}"</p>
     `;
 
     const speakBtn = card.querySelector(".curr-speak-btn");
+    const translateBtn = card.querySelector(".curr-translate-btn");
+    const npcKoEl = card.querySelector(".curriculum-card-npc-ko");
     const input = card.querySelector(".curr-answer-input");
     const checkBtn = card.querySelector(".curr-check-btn");
     const feedbackEl = card.querySelector(".curriculum-card-feedback");
     const answerEl = card.querySelector(".curriculum-card-answer");
+    const answerKoEl = card.querySelector(".curriculum-card-answer-ko");
 
     speakBtn.addEventListener("click", () => speak(scenario.npc));
+    translateBtn.addEventListener("click", () => {
+      npcKoEl.classList.toggle("hidden");
+    });
 
     function submitAnswer() {
       const value = input.value.trim();
@@ -495,6 +525,7 @@ function renderCurriculumDay() {
       const correct = checkCurriculumAnswer(scenario, value);
       feedbackEl.classList.remove("hidden");
       answerEl.classList.remove("hidden");
+      answerKoEl.classList.remove("hidden");
       if (correct) {
         feedbackEl.className = "curriculum-card-feedback correct";
         feedbackEl.textContent = "✅ 좋아요! 자연스러운 답변이에요.";
