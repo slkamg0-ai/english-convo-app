@@ -1,0 +1,502 @@
+:root {
+  --navy: #0f2b46;
+  --teal: #006494;
+  --teal-light: #0177a9;
+  --bg: #f2f4f7;
+  --card-bg: #ffffff;
+  --border: #dae1e8;
+  --text: #242b34;
+  --muted: #6f6f6f;
+  --green: #1a8a5f;
+  --red: #c34331;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  background: var(--navy);
+  color: #fff;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab-btn.active {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  margin-top: 0;
+  color: var(--navy);
+  font-size: 17px;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-actions {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.primary-btn {
+  background: var(--teal);
+  color: #fff;
+  border: 1px solid var(--teal);
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.primary-btn:hover {
+  background: var(--teal-light);
+}
+
+.secondary-btn {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.secondary-btn:hover {
+  background: #e0e4e9;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--teal);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.scenario-search-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  margin: 10px 0 4px 0;
+}
+
+.scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.scenario-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.scenario-item:hover {
+  background: var(--bg);
+}
+
+.scenario-item h3 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  color: var(--navy);
+}
+
+.scenario-item p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.scenario-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.npc-line {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.npc-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.npc-line p {
+  font-size: 16px;
+  margin: 6px 0 10px 0;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.icon-btn {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.user-turn {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.mic-btn {
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 16px 28px;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mic-btn.listening {
+  background: var(--red);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(195, 67, 49, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(195, 67, 49, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(195, 67, 49, 0); }
+}
+
+.mic-status {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  min-height: 16px;
+}
+
+.transcript {
+  font-size: 14px;
+  color: var(--text);
+  min-height: 20px;
+  font-style: italic;
+}
+
+.feedback-box {
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.feedback-box.correct {
+  background: #e7f6ef;
+  color: var(--green);
+}
+
+.feedback-box.incorrect {
+  background: #fdecea;
+  color: var(--red);
+}
+
+.hint-row {
+  text-align: center;
+}
+
+.hint-text {
+  font-size: 13px;
+  color: var(--navy);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+.scenario-end {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.flash-progress {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.flashcard {
+  perspective: 1000px;
+  height: 200px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+
+.flashcard.flipped .flashcard-inner {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+}
+
+.flashcard-front {
+  background: var(--navy);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.flashcard-back {
+  background: var(--teal);
+  color: #fff;
+  transform: rotateY(180deg);
+  padding: 16px;
+  text-align: center;
+}
+
+.flashcard-back p {
+  margin: 4px 0;
+}
+
+.flash-example {
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.flash-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.text-fallback-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.text-fallback-row input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.curriculum-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.curriculum-day-label {
+  text-align: center;
+}
+
+.curriculum-day-label strong {
+  display: block;
+  font-size: 18px;
+  color: var(--navy);
+}
+
+.curriculum-day-label span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.curriculum-progress-bar {
+  background: var(--bg);
+  border-radius: 999px;
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.curriculum-progress-fill {
+  background: var(--teal);
+  height: 100%;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.curriculum-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.curriculum-card.completed {
+  border-color: var(--green);
+  background: #f3faf6;
+}
+
+.curriculum-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.curriculum-card-npc {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 6px 0;
+}
+
+.curriculum-card-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.curriculum-card-row input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.curriculum-card-feedback {
+  font-size: 13px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.curriculum-card-feedback.correct {
+  background: #e7f6ef;
+  color: var(--green);
+}
+
+.curriculum-card-feedback.incorrect {
+  background: #fdecea;
+  color: var(--red);
+}
+
+.curriculum-card-answer {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.voice-select-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.voice-select-row select {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--text);
+}

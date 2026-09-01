@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>영어회화 연습</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>영어회화 연습</h1>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="home">홈</button>
+      <button class="tab-btn" data-tab="curriculum">200일 코스</button>
+      <button class="tab-btn" data-tab="roleplay">상황극</button>
+      <button class="tab-btn" data-tab="flashcards">단어 카드</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="home" class="tab-panel active">
+      <div class="card intro-card">
+        <h2>무엇을 연습해볼까요?</h2>
+        <p>브라우저 음성인식/합성 기능만 사용하는 무료 프로토타입입니다. 서버나 API 비용 없이 동작합니다.</p>
+        <div class="home-actions">
+          <button class="primary-btn" data-goto="curriculum">200일 코스 시작</button>
+          <button class="secondary-btn" data-goto="roleplay">상황극 연습</button>
+          <button class="secondary-btn" data-goto="flashcards">단어 카드 복습</button>
+        </div>
+        <p class="note">⚠️ 음성인식은 Chrome 브라우저에서 가장 잘 동작합니다. 마이크가 없으면 텍스트로 입력해도 됩니다.</p>
+      </div>
+
+      <div class="card">
+        <h2>음성 설정</h2>
+        <p class="note">기기에 설치된 음성 중 자동으로 가장 자연스러운 영어 음성을 골라둡니다. 마음에 드는 목소리로 직접 바꿀 수도 있어요.</p>
+        <div class="voice-select-row">
+          <select id="voice-select"></select>
+          <button id="voice-test-btn" class="secondary-btn">🔊 테스트</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="curriculum" class="tab-panel">
+      <div class="card">
+        <div class="curriculum-header">
+          <button id="curr-prev-day" class="icon-btn">◀ 이전</button>
+          <div class="curriculum-day-label">
+            <strong id="curr-day-title">Day 1</strong>
+            <span id="curr-day-sub">/ 200일</span>
+          </div>
+          <button id="curr-next-day" class="icon-btn">다음 ▶</button>
+        </div>
+        <div class="curriculum-progress-bar">
+          <div id="curr-progress-fill" class="curriculum-progress-fill"></div>
+        </div>
+        <p id="curr-progress-text" class="note"></p>
+        <button id="curr-jump-today" class="link-btn">▶ 다음 미완료 날짜로 이동</button>
+      </div>
+
+      <div id="curr-cards"></div>
+    </section>
+
+    <section id="roleplay" class="tab-panel">
+      <div id="scenario-select" class="card">
+        <h2>상황 선택</h2>
+        <input id="scenario-search" type="text" class="scenario-search-input" placeholder="🔍 상황 검색 (예: 호텔, 커피, 은행...)" />
+        <p id="scenario-count" class="note"></p>
+        <div id="scenario-list" class="scenario-list"></div>
+      </div>
+
+      <div id="scenario-play" class="card hidden">
+        <div class="scenario-header">
+          <button id="back-to-scenarios" class="link-btn">&larr; 상황 목록으로</button>
+          <h2 id="scenario-title"></h2>
+        </div>
+
+        <div class="npc-line">
+          <span class="npc-label">직원/상대방</span>
+          <p id="npc-text"></p>
+          <button id="replay-npc" class="icon-btn" title="다시 듣기">🔊 다시 듣기</button>
+        </div>
+
+        <div class="user-turn">
+          <button id="mic-btn" class="mic-btn">🎤 눌러서 말하기</button>
+          <div id="mic-status" class="mic-status"></div>
+          <p id="transcript" class="transcript"></p>
+          <div class="text-fallback-row">
+            <input id="text-answer-input" type="text" placeholder="마이크가 없다면 여기에 영어로 입력하세요" />
+            <button id="text-answer-submit" class="secondary-btn">확인</button>
+          </div>
+        </div>
+
+        <div id="feedback-box" class="feedback-box hidden">
+          <p id="feedback-text"></p>
+          <button id="next-btn" class="primary-btn hidden">다음으로</button>
+        </div>
+
+        <div class="hint-row">
+          <button id="hint-btn" class="link-btn">💡 예문 힌트 보기</button>
+          <p id="hint-text" class="hint-text hidden"></p>
+        </div>
+
+        <div id="scenario-end" class="scenario-end hidden">
+          <p>🎉 상황극을 완료했습니다!</p>
+          <button id="restart-scenario" class="secondary-btn">다시 하기</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="flashcards" class="tab-panel">
+      <div class="card">
+        <div class="flash-progress">
+          <span id="flash-count"></span>
+          <span id="flash-known-count"></span>
+        </div>
+        <div id="flashcard" class="flashcard">
+          <div class="flashcard-inner">
+            <div class="flashcard-face flashcard-front">
+              <p id="flash-front-text"></p>
+              <button id="flash-speak" class="icon-btn" title="발음 듣기">🔊</button>
+            </div>
+            <div class="flashcard-face flashcard-back">
+              <p id="flash-back-text"></p>
+              <p id="flash-example-text" class="flash-example"></p>
+            </div>
+          </div>
+        </div>
+        <p class="note">카드를 클릭하면 뒤집힙니다</p>
+        <div class="flash-actions">
+          <button id="flash-dontknow" class="secondary-btn">🔁 아직 모름</button>
+          <button id="flash-know" class="primary-btn">✅ 알고 있음</button>
+        </div>
+        <button id="flash-reset" class="link-btn">전체 초기화</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="scenarios.js"></script>
+  <script src="flashcards.js"></script>
+  <script src="curriculum-data.js"></script>
+  <script src="roleplay-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
