@@ -130,6 +130,10 @@ function displayNameFromEmail(email) {
   return email.split('@')[0].slice(0, 80);
 }
 
+function signupDisplayName(body) {
+  return requiredString(body.displayName, 80) ? body.displayName.trim() : displayNameFromEmail(body.email);
+}
+
 function validateInvite(body) {
   if (!positiveInt(body?.maxUses) || body.maxUses > 100) throw new HttpError(400, 'INVALID_REQUEST');
   if (body.expiresAt !== undefined && Number.isNaN(Date.parse(body.expiresAt))) throw new HttpError(400, 'INVALID_REQUEST');
@@ -142,7 +146,7 @@ async function handleSignup(request, supabase, now) {
   const expired = invite?.expires_at && Date.parse(invite.expires_at) <= now().getTime();
   if (!invite || invite.uses >= invite.max_uses || expired) throw new HttpError(403, 'INVITE_UNAVAILABLE');
   const user = await supabase.createUser(body);
-  await supabase.createProfile(user, displayNameFromEmail(body.email));
+  await supabase.createProfile(user, signupDisplayName(body));
   await supabase.rpc('increment_invite_use', { invite_id: invite.id }, supabase.env.SUPABASE_SERVICE_ROLE_KEY);
   return json({ user: { id: user.id, email: user.email } });
 }
@@ -159,6 +163,15 @@ async function handleInviteCreate(request, supabase, session, randomBytes) {
     body: { code_hash: await inviteHash(code), max_uses: body.maxUses, expires_at: body.expiresAt ?? null, created_by: session.user.id },
   });
   return json({ code, invite: Array.isArray(rows) ? rows[0] : rows });
+}
+
+async function handleInviteList(supabase, session) {
+  requireAdmin(session);
+  const invites = await supabase.request('/rest/v1/invites?select=id,code_hash,max_uses,uses,expires_at,created_by,created_at&order=created_at.desc', {
+    method: 'GET',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  return json({ invites });
 }
 
 async function handleProgress(request, supabase, session) {
@@ -238,6 +251,7 @@ export function createWorker(deps = {}) {
         if (!url.pathname.startsWith('/api/')) return json({ error: { code: 'NOT_FOUND' } }, 404);
         const session = await requireSession(request, supabase);
         if (url.pathname === '/api/admin/invites' && request.method === 'POST') return await handleInviteCreate(request, supabase, session, randomBytes);
+        if (url.pathname === '/api/admin/invites' && request.method === 'GET') return await handleInviteList(supabase, session);
         if (url.pathname === '/api/progress' && request.method === 'POST') return await handleProgress(request, supabase, session);
         if (url.pathname === '/api/rewards/claim' && request.method === 'POST') return await handleRewardClaim(request, supabase, session);
         if (url.pathname === '/api/admin/claims' && (request.method === 'GET' || request.method === 'POST')) return await handleClaims(request, supabase, session);

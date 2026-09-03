@@ -80,14 +80,14 @@ test('POST /api/auth/signup validates invite code, creates account, increments u
   const api = worker(fetchImpl);
 
   const response = await api.fetch(request('/api/auth/signup', {
-    body: { email: 'new@test.local', password: 'secret123', inviteCode: 'JOIN-2026' },
+    body: { email: 'new@test.local', password: 'secret123', displayName: 'Site Captain', inviteCode: 'JOIN-2026' },
   }), env);
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { user: { id: 'created-user', email: 'new@test.local' } });
   assert.ok(calls.some(call => call.url.endsWith('/auth/v1/admin/users')));
   const profileInsert = calls.find(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
-  assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'new', role: 'user' });
+  assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'Site Captain', role: 'user' });
   assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/increment_invite_use')));
   assert.ok(calls.every(call => !JSON.stringify(call.body ?? {}).includes('JOIN-2026')));
 
@@ -117,6 +117,33 @@ test('POST /api/admin/invites creates a hashed invite code record and returns th
   assert.equal(insert.body.code_hash.length, 64);
   assert.equal(insert.body.max_uses, 2);
   assert.ok(!JSON.stringify(insert.body).includes(body.code));
+});
+
+test('GET /api/admin/invites lists invite metadata for admins only without plain codes', async () => {
+  const invites = [{
+    id: 'invite-1',
+    code_hash: 'a'.repeat(64),
+    max_uses: 2,
+    uses: 1,
+    expires_at: '2026-09-30T00:00:00.000Z',
+    created_by: 'admin-user',
+    created_at: '2026-09-04T00:00:00.000Z',
+  }];
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/invites')) return responseJson(invites);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const adminResponse = await api.fetch(request('/api/admin/invites', { method: 'GET', headers: adminHeaders }), env);
+  const adminBody = await adminResponse.json();
+  const userResponse = await api.fetch(request('/api/admin/invites', { method: 'GET', headers: authHeaders }), env);
+
+  assert.equal(adminResponse.status, 200);
+  assert.deepEqual(adminBody, { invites });
+  assert.equal(JSON.stringify(adminBody).includes('JOIN-2026'), false);
+  assert.equal(userResponse.status, 403);
 });
 
 test('authenticated /api/progress calls Supabase RPC record_activity', async () => {
