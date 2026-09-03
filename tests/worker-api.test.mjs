@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createWorker } from '../worker/src/index.js';
 
 const env = {
@@ -72,6 +73,7 @@ test('POST /api/auth/signup validates invite code, creates account, increments u
   const { fetchImpl, calls } = createMockFetch(call => {
     if (call.url.includes('/rest/v1/invites')) return responseJson(invite ? [invite] : []);
     if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ id: 'created-user', email: call.body.email });
+    if (call.url.includes('/rest/v1/profiles')) return responseJson([{ user_id: call.body.user_id, display_name: call.body.display_name, role: 'user' }], 201);
     if (call.url.includes('/rest/v1/rpc/increment_invite_use')) return responseJson({ id: 'invite-1', uses: 1 });
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
@@ -84,6 +86,8 @@ test('POST /api/auth/signup validates invite code, creates account, increments u
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { user: { id: 'created-user', email: 'new@test.local' } });
   assert.ok(calls.some(call => call.url.endsWith('/auth/v1/admin/users')));
+  const profileInsert = calls.find(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
+  assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'new', role: 'user' });
   assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/increment_invite_use')));
   assert.ok(calls.every(call => !JSON.stringify(call.body ?? {}).includes('JOIN-2026')));
 
@@ -196,9 +200,20 @@ test('Gemini 429 returns limited-mode response without leaking upstream text', a
     headers: authHeaders,
     body: { action: 'start', scenario, level: 'beginner', messages: [] },
   }), env);
-  const text = await response.text();
+  const body = await response.json();
 
-  assert.equal(response.status, 429);
-  assert.match(text, /QUOTA_EXCEEDED/);
-  assert.doesNotMatch(text, /SECRET/);
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.ai, { status: 'limited' });
+  assert.equal(body.fallback, 'scripted');
+  assert.equal(typeof body.message, 'string');
+  assert.doesNotMatch(JSON.stringify(body), /SECRET/);
+});
+
+test('Worker RPC names are defined in Supabase migration', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
+
+  for (const rpcName of ['increment_invite_use', 'check_ai_usage', 'increment_ai_usage']) {
+    assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
+    assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
+  }
 });

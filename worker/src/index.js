@@ -90,6 +90,15 @@ class SupabaseClient {
       body: { email: body.email, password: body.password, email_confirm: true },
     });
   }
+
+  async createProfile(user, displayName) {
+    return this.request('/rest/v1/profiles?select=user_id,display_name,role', {
+      method: 'POST',
+      key: this.env.SUPABASE_SERVICE_ROLE_KEY,
+      prefer: 'return=representation',
+      body: { user_id: user.id, display_name: displayName, role: 'user' },
+    });
+  }
 }
 
 function authToken(request) {
@@ -117,6 +126,10 @@ function validateSignup(body) {
   }
 }
 
+function displayNameFromEmail(email) {
+  return email.split('@')[0].slice(0, 80);
+}
+
 function validateInvite(body) {
   if (!positiveInt(body?.maxUses) || body.maxUses > 100) throw new HttpError(400, 'INVALID_REQUEST');
   if (body.expiresAt !== undefined && Number.isNaN(Date.parse(body.expiresAt))) throw new HttpError(400, 'INVALID_REQUEST');
@@ -129,6 +142,7 @@ async function handleSignup(request, supabase, now) {
   const expired = invite?.expires_at && Date.parse(invite.expires_at) <= now().getTime();
   if (!invite || invite.uses >= invite.max_uses || expired) throw new HttpError(403, 'INVITE_UNAVAILABLE');
   const user = await supabase.createUser(body);
+  await supabase.createProfile(user, displayNameFromEmail(body.email));
   await supabase.rpc('increment_invite_use', { invite_id: invite.id }, supabase.env.SUPABASE_SERVICE_ROLE_KEY);
   return json({ user: { id: user.id, email: user.email } });
 }
@@ -198,7 +212,13 @@ async function handleRoleplay(request, env, supabase, session, fetchImpl, now) {
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify(generation(body, turns)),
   });
-  if (upstream.status === 429) throw new HttpError(429, 'QUOTA_EXCEEDED');
+  if (upstream.status === 429) {
+    return json({
+      ai: { status: 'limited' },
+      fallback: 'scripted',
+      message: 'AI practice is limited right now. Try the scenario prompt and sample answer while the quota resets.',
+    });
+  }
   if (!upstream.ok) throw new HttpError(502, 'UPSTREAM_ERROR');
   const result = parseOutput(await upstream.json(), body, turns);
   await supabase.rpc('increment_ai_usage', { usage_date: now().toISOString().slice(0, 10) }, session.token);
