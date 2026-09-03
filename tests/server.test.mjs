@@ -162,3 +162,67 @@ test('process environment key configures AI when no injected key is provided', a
   assert.equal((await a.play()).status, 200);
   assert.equal(sentKey, 'env-key');
 });
+
+test('local mock auth session invite and logout flow works without Supabase', async t => {
+  // Given
+  const a = await setup(t);
+  const admin = (await a.call('/api/auth/login', { email: 'owner@example.com', password: 'owner-pass' })).body.session.token;
+
+  // When
+  const created = await a.call('/api/admin/invites', { maxUses: 1 }, 'POST', { Authorization: `Bearer ${admin}` });
+  const signup = await a.call('/api/auth/signup', {
+    email: 'learner@example.com',
+    password: 'pass1234',
+    displayName: 'Learner',
+    inviteCode: created.body.code,
+  });
+  const session = await a.call('/api/session', null, 'GET', { Authorization: `Bearer ${signup.body.session.token}` });
+  const login = await a.call('/api/auth/login', { email: 'learner@example.com', password: 'pass1234' });
+  const afterLogout = await a.call('/api/auth/logout', null, 'POST', { Authorization: `Bearer ${login.body.session.token}` });
+
+  // Then
+  assert.equal(created.status, 200);
+  assert.equal(signup.status, 200);
+  assert.equal(session.body.user.email, 'learner@example.com');
+  assert.equal(session.body.user.displayName, 'Learner');
+  assert.equal(session.body.user.role, 'user');
+  assert.equal(login.status, 200);
+  assert.equal(afterLogout.status, 200);
+  assert.equal((await a.call('/api/session', null, 'GET', { Authorization: `Bearer ${login.body.session.token}` })).status, 401);
+});
+
+test('local mock progress rewards and admin claim updates are deterministic', async t => {
+  // Given
+  const a = await setup(t);
+  const admin = (await a.call('/api/auth/login', { email: 'owner@example.com', password: 'owner-pass' })).body.session.token;
+  const invite = await a.call('/api/admin/invites', { maxUses: 1 }, 'POST', { Authorization: `Bearer ${admin}` });
+  const signup = await a.call('/api/auth/signup', {
+    email: 'reward@example.com',
+    password: 'pass1234',
+    displayName: 'Reward User',
+    inviteCode: invite.body.code,
+  });
+  const token = signup.body.session.token;
+
+  // When
+  const progress = await a.call('/api/progress/activity', {
+    clientEventId: 'curriculum:reward-1',
+    kind: 'curriculum',
+    sourceId: 'reward-1',
+    xpDelta: 120,
+    occurredAt: '2026-09-04T00:00:00.000Z',
+  }, 'POST', { Authorization: `Bearer ${token}` });
+  const rewards = await a.call('/api/rewards', null, 'GET', { Authorization: `Bearer ${token}` });
+  const claim = await a.call('/api/rewards/claim', { ruleId: 'coffee_100' }, 'POST', { Authorization: `Bearer ${token}` });
+  const updated = await a.call(`/api/admin/claims/${claim.body.claim.id}`, { status: 'approved', adminNote: 'ready' }, 'PATCH', { Authorization: `Bearer ${admin}` });
+
+  // Then
+  assert.equal(progress.status, 200);
+  assert.equal(progress.body.awarded, true);
+  assert.equal(progress.body.progress.xp, 120);
+  assert.equal(rewards.body.summary.xp, 120);
+  assert.equal(rewards.body.rules.find(rule => rule.id === 'coffee_100').eligible, true);
+  assert.equal(claim.status, 200);
+  assert.equal(updated.body.claim.status, 'approved');
+  assert.equal((await a.call('/api/admin/claims', null, 'GET', { Authorization: `Bearer ${admin}` })).body.claims.length, 1);
+});

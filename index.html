@@ -24,13 +24,42 @@
     <section id="home" class="tab-panel active">
       <div class="card intro-card">
         <h2>무엇을 연습해볼까요?</h2>
-        <p>매일 조금씩, 실제 상황에서 쓸 영어를 연습하세요. 기본 연습은 바로 사용할 수 있고, AI 상황극은 Gemini 무료 등급을 연결해 이용합니다.</p>
+        <p>매일 조금씩, 실제 상황에서 쓸 영어를 연습하세요. 초대받은 학습자는 자기 계정으로 어디서든 진행 상황과 보상 신청을 이어갈 수 있습니다.</p>
         <div class="home-actions">
           <button class="primary-btn" data-goto="curriculum">200일 코스 시작</button>
           <button class="secondary-btn" data-goto="roleplay">상황극 연습</button>
           <button class="secondary-btn" data-goto="flashcards">단어 카드 복습</button>
         </div>
         <p class="note">⚠️ 음성인식은 Chrome 브라우저에서 가장 잘 동작합니다. 마이크가 없으면 텍스트로 입력해도 됩니다.</p>
+      </div>
+
+      <div id="account-panel" class="card account-card">
+        <div class="panel-heading">
+          <div>
+            <span class="section-kicker">ACCOUNT</span>
+            <h2>계정</h2>
+          </div>
+          <span id="account-role" class="status-tag">local</span>
+        </div>
+        <p id="account-user" class="note">로그인 전</p>
+        <p id="account-status" class="note" role="status"></p>
+        <div id="account-forms" class="account-forms">
+          <form id="signup-form" class="cloud-form">
+            <label>이름<input name="displayName" type="text" autocomplete="name" required /></label>
+            <label>이메일<input name="email" type="email" autocomplete="email" required /></label>
+            <label>비밀번호<input name="password" type="password" autocomplete="new-password" required minlength="6" /></label>
+            <label>초대코드<input name="inviteCode" type="text" autocomplete="off" required /></label>
+            <button class="primary-btn" type="submit">초대 가입</button>
+          </form>
+          <form id="login-form" class="cloud-form">
+            <label>이메일<input name="email" type="email" autocomplete="email" required /></label>
+            <label>비밀번호<input name="password" type="password" autocomplete="current-password" required /></label>
+            <button class="secondary-btn" type="submit">로그인</button>
+          </form>
+        </div>
+        <div id="account-signed-in" class="hidden">
+          <button id="logout-btn" class="secondary-btn" type="button">로그아웃</button>
+        </div>
       </div>
 
       <div class="card">
@@ -77,28 +106,8 @@
           <label><input type="radio" name="roleplay-mode" value="scripted" checked /> 기본 상황극</label>
           <label><input type="radio" name="roleplay-mode" value="ai" /> Gemini AI 대화</label>
         </fieldset>
-        <p class="note">AI는 내 답변을 기억하며 질문을 이어갑니다. 무료 등급의 사용량 제한이 적용됩니다.</p>
+        <p class="note">AI는 운영자가 설정한 Gemini 연결로 동작합니다. 학습자는 별도 설정을 하지 않습니다.</p>
         <p id="ai-connection-status" class="ai-status" role="status">AI 연결 상태를 확인하고 있습니다.</p>
-        <details id="ai-setup" class="ai-setup">
-          <summary>Gemini 무료 연결 설정</summary>
-          <ol class="ai-setup-steps">
-            <li><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Google AI Studio에서 API 키 만들기</a></li>
-            <li>해당 프로젝트가 <strong>Free Tier</strong>이며 결제가 연결되지 않았는지 확인하세요. 유료 전환이나 결제 등록은 하지 않습니다.</li>
-            <li>아래에 키를 입력합니다. 키는 이 PC의 실행 중인 서버 메모리에만 보관되며 서버 종료 시 사라집니다.</li>
-          </ol>
-          <p class="note">이 앱은 API 키만으로 결제 상태를 확인할 수 없습니다. 무료 등급에서는 대화 내용이 Google 제품 개선에 사용될 수 있으므로 개인정보를 넣지 마세요. <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">무료 조건 확인</a></p>
-          <form id="ai-setup-form" class="ai-form">
-            <label for="ai-api-key">Gemini API 키</label>
-            <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="이 PC에서만 연결할 키" required minlength="20" maxlength="256" />
-            <label class="ai-checkbox"><input id="ai-free-confirmed" type="checkbox" required /> 이 키의 프로젝트가 Free Tier이고 결제가 연결되지 않았음을 확인했습니다.</label>
-            <div class="ai-actions">
-              <button id="ai-save-key" class="primary-btn" type="submit">무료 프로젝트로 연결</button>
-              <button id="ai-disconnect" class="secondary-btn" type="button" disabled>키 지우기</button>
-            </div>
-          </form>
-          <p id="ai-setup-status" class="ai-status" role="status"></p>
-          <p class="note">한도에 도달하면 AI 호출을 중단합니다. 한도가 회복된 뒤 키를 다시 연결하세요. 유료 모델로 자동 전환하지 않습니다.</p>
-        </details>
         <label class="ai-level" for="ai-level">AI 대화 난이도
           <select id="ai-level"><option value="beginner">초급 · 짧고 쉬운 문장</option><option value="intermediate">중급 · 자연스러운 문장</option></select>
         </label>
@@ -263,6 +272,40 @@
         <h2>뱃지</h2>
         <div id="badge-grid" class="badge-grid"></div>
       </div>
+
+      <div class="card reward-panel">
+        <div class="panel-heading">
+          <div>
+            <span class="section-kicker">REWARDS</span>
+            <h2>보상 신청</h2>
+          </div>
+        </div>
+        <div class="progress-stat-grid reward-stat-grid">
+          <div class="progress-stat"><span id="reward-xp" class="progress-stat-value">0</span><span class="progress-stat-label">XP</span></div>
+          <div class="progress-stat"><span id="reward-streak" class="progress-stat-value">0</span><span class="progress-stat-label">연속일</span></div>
+          <div class="progress-stat"><span id="reward-completed" class="progress-stat-value">0</span><span class="progress-stat-label">완료</span></div>
+        </div>
+        <p id="reward-message" class="note" role="status"></p>
+        <div id="reward-list" class="reward-list"></div>
+        <div id="claim-list" class="claim-list"></div>
+      </div>
+
+      <div id="admin-panel" class="card admin-panel hidden">
+        <div class="panel-heading">
+          <div>
+            <span class="section-kicker">ADMIN</span>
+            <h2>운영자 승인</h2>
+          </div>
+        </div>
+        <form id="invite-form" class="cloud-form">
+          <label>초대 사용 횟수<input name="maxUses" type="number" min="1" max="20" value="1" /></label>
+          <button class="secondary-btn" type="submit">초대 만들기</button>
+        </form>
+        <p id="new-invite-code" class="note"></p>
+        <p id="admin-status" class="note" role="status"></p>
+        <div id="invite-list" class="admin-table"></div>
+        <div id="admin-claim-list" class="admin-table"></div>
+      </div>
     </section>
   </main>
 
@@ -272,7 +315,11 @@
   <script src="flashcards-data.js"></script>
   <script src="curriculum-data.js"></script>
   <script src="roleplay-data.js"></script>
+  <script src="cloud-client.js"></script>
   <script src="progress.js"></script>
+  <script src="auth-ui.js"></script>
+  <script src="rewards-ui.js"></script>
+  <script src="admin-ui.js"></script>
   <script src="ai-roleplay-core.js"></script>
   <script src="ai-roleplay-connection.js"></script>
   <script src="ai-roleplay-speech.js"></script>

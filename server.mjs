@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { AppError, MODEL, fail, generation, parseOutput, readJson, validate } from './gemini-service.mjs';
+import { createLocalMockApi } from './local-mock-api.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const FILES = new Set([
   'index.html', 'style.css', 'app.js', 'scenarios.js', 'roleplay-data.js',
   'curriculum-data.js', 'flashcards-data.js', 'progress.js', 'ai-roleplay.js',
   'ai-roleplay-core.js', 'ai-roleplay-connection.js', 'ai-roleplay-speech.js',
-  'ai-roleplay-reviews.js',
+  'ai-roleplay-reviews.js', 'cloud-client.js', 'auth-ui.js', 'rewards-ui.js', 'admin-ui.js',
 ]);
 const ERRORS = {
   INVALID_REQUEST: [400, '요청 내용을 확인해 주세요.'],
@@ -27,6 +28,7 @@ export function createApp({
   geminiApiKey = process.env.GEMINI_API_KEY,
 } = {}) {
   const config = { key: geminiApiKey || '', quotaBlocked: false };
+  const mockApi = createLocalMockApi();
   let activeController = null;
   const status = () => ({
     configured: !!config.key,
@@ -61,6 +63,8 @@ export function createApp({
         if (req.method !== 'GET' && req.headers.origin !== `http://${req.headers.host}`) {
           fail('INVALID_REQUEST');
         }
+        const mockResult = await mockApi.handle(pathname, req, readJson);
+        if (mockResult) return json(mockResult.status, mockResult.body);
         if (pathname === '/api/status' && req.method === 'GET') return json(200, status());
         if (pathname === '/api/roleplay' && req.method === 'POST') {
           const data = await readJson(req);

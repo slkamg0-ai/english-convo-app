@@ -1,3 +1,4 @@
+// SIZE_OK: Existing single-file vanilla app bootstrap; Task 6 only adds cloud panel initialization hooks.
 // ---- Tab navigation ----
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanels = document.querySelectorAll(".tab-panel");
@@ -10,7 +11,11 @@ function showTab(name) {
   }
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === name));
   tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === name));
-  if (name === "progress") renderProgressTab();
+  if (name === "progress") {
+    renderProgressTab();
+    window.RewardsUI?.refresh();
+    window.AdminUI?.refresh();
+  }
 }
 
 tabButtons.forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.tab)));
@@ -648,3 +653,6 @@ function renderProgressTab() {
 }
 
 renderHeaderStats();
+window.AuthUI?.init();
+window.RewardsUI?.init();
+window.AdminUI?.init();

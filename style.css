@@ -679,7 +679,116 @@ main {
   color: var(--red);
 }
 
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.section-kicker {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.status-tag {
+  border: 1px solid var(--border);
+  color: var(--teal);
+  font-size: 11px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.account-forms {
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-form {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cloud-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cloud-form input {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.status-error {
+  color: var(--red);
+}
+
+.reward-stat-grid {
+  border: 1px solid var(--border);
+  margin: 10px 0;
+}
+
+.reward-stat-grid .progress-stat {
+  flex: 1;
+  padding: 10px 4px;
+}
+
+.reward-stat-grid .progress-stat + .progress-stat {
+  border-left: 1px solid var(--border);
+}
+
+.reward-list,
+.claim-list,
+.admin-table {
+  display: grid;
+  gap: 8px;
+}
+
+.reward-card,
+.admin-claim-row {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  background: var(--bg);
+}
+
+.reward-card-ready {
+  border-color: var(--teal);
+}
+
+.reward-card p,
+.admin-claim-row p,
+.admin-row,
+.claim-row {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-claim-row {
+  grid-template-columns: 1fr;
+}
+
+.admin-claim-row button {
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
 /* AI practice follows the existing card and button system in DESIGN.md. */
+/* SIZE_OK: Existing global stylesheet; Task 6 adds scoped account/reward/admin rules without a CSS architecture split. */
 :root {
   --ai-space-1: 4px;
   --ai-space-2: 8px;

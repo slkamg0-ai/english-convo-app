@@ -9,7 +9,7 @@ const AIRoleplayConnection = (() => {
     try {
       const response = await fetch(path, {
         method,
-        headers: body ? { 'Content-Type': 'application/json' } : {},
+        headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(window.CloudClient?.authHeader() || {}) },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
         cache: 'no-store',

@@ -1,7 +1,6 @@
 (() => {
   const el = id => document.getElementById(id);
   const panel = el('ai-play');
-  const setup = el('ai-setup');
   const apiOrigin = location.protocol !== 'file:' && ['127.0.0.1', 'localhost'].includes(location.hostname);
   const api = (path, options) => AIRoleplayConnection.request(path, options, apiOrigin);
   let session;
@@ -9,7 +8,6 @@
   const reviews = AIRoleplayReviews.create({ el, textNode, say: (...args) => speech.say(...args), restart: (...args) => start(...args), reward: sessionId => { try { handleActivityResult(recordActivity(`ai-roleplay:${sessionId}`, 8, 'roleplay')); } catch { el('ai-save-status').textContent += ' 학습 성과를 저장하지 못했습니다.'; } } });
   let connection = { configured: false, quotaBlocked: false };
   let serverAvailable = false;
-  let settingsBusy = false;
   let selectedKey = null;
   let lastRenderedReply = '';
 
@@ -23,10 +21,8 @@
   function renderConnection(message) {
     el('ai-connection-status').textContent = message || (connection.quotaBlocked
       ? '무료 사용 한도에 도달해 AI 호출을 중단했습니다. 기본 상황극을 이용해주세요.'
-      : connection.configured ? '연결 설정됨 · 무료 프로젝트 사용자 확인 완료. 실제 연결은 대화 시작 시 확인합니다.'
-        : 'AI 연결 전입니다. 아래에서 무료 프로젝트를 연결하거나 기본 상황극을 선택하세요.');
-    el('ai-save-key').disabled = settingsBusy || !serverAvailable;
-    el('ai-disconnect').disabled = settingsBusy || !connection.configured;
+      : connection.configured ? 'AI 연결 준비됨 · 운영자 설정으로 대화합니다.'
+        : 'AI 연결 전입니다. 운영자 서버 설정이 준비되면 사용할 수 있습니다.');
   }
 
   async function refreshConnection() {
@@ -40,38 +36,9 @@
     }
   }
 
-  el('ai-setup-form').addEventListener('submit', async event => {
-    event.preventDefault();
-    if (settingsBusy || !el('ai-free-confirmed').checked) return;
-    settingsBusy = true;
-    renderConnection();
-    el('ai-setup-status').textContent = '연결 설정을 저장하고 있습니다.';
-    try {
-      connection = await api('/api/settings', { method: 'POST', body: { apiKey: el('ai-api-key').value.trim(), freeTierConfirmed: true } });
-      el('ai-api-key').value = '';
-      el('ai-free-confirmed').checked = false;
-      el('ai-setup-status').textContent = '키를 이 PC의 서버 메모리에 저장했습니다. AI 대화를 선택하고 상황을 골라주세요.';
-      document.querySelector('input[name="roleplay-mode"][value="ai"]').checked = true;
-      el('ai-level').disabled = false;
-    } catch (error) { el('ai-setup-status').textContent = error.message; }
-    finally { settingsBusy = false; renderConnection(); }
-  });
-
-  el('ai-disconnect').addEventListener('click', async () => {
-    if (settingsBusy) return;
-    settingsBusy = true;
-    renderConnection();
-    try {
-      connection = await api('/api/settings', { method: 'DELETE' });
-      el('ai-setup-status').textContent = '서버 메모리에서 키를 지웠습니다.';
-    } catch (error) { el('ai-setup-status').textContent = error.message; }
-    finally { settingsBusy = false; renderConnection(); }
-  });
-
   document.querySelectorAll('input[name="roleplay-mode"]').forEach(input => {
     input.addEventListener('change', () => {
       el('ai-level').disabled = !isSelected();
-      if (isSelected() && (!connection.configured || connection.quotaBlocked)) setup.open = true;
     });
   });
   el('ai-level').disabled = true;
@@ -149,10 +116,8 @@
     if (!SCENARIOS[key]) return;
     speech.stop();
     if (!connection.configured || connection.quotaBlocked || !serverAvailable) {
-      setup.open = true;
       renderConnection();
-      el('ai-setup-status').textContent = !serverAvailable ? 'Start-English.cmd를 실행한 뒤 로컬 주소에서 연결해주세요.' : connection.quotaBlocked ? '한도가 회복된 뒤 무료 프로젝트 키를 다시 연결해주세요. 기본 상황극은 계속 사용할 수 있습니다.' : '먼저 무료 프로젝트를 연결해주세요. 키가 없으면 기본 상황극을 선택하세요.';
-      setup.scrollIntoView({ block: 'nearest' });
+      el('ai-connection-status').textContent = !serverAvailable ? 'Start-English.cmd를 실행한 뒤 로컬 주소에서 연결해주세요.' : connection.quotaBlocked ? '한도가 회복된 뒤 다시 시도해주세요. 기본 상황극은 계속 사용할 수 있습니다.' : '운영자 Gemini 연결이 아직 준비되지 않았습니다. 기본 상황극을 선택하세요.';
       return;
     }
     selectedKey = key;

@@ -116,7 +116,17 @@ function recordActivity(uniqueId, xpAmount, kind) {
   });
 
   saveProgress(progress);
-  return { awarded: true, xpAmount, newlyUnlocked, progress: summarize(progress) };
+  const result = { awarded: true, xpAmount, newlyUnlocked, progress: summarize(progress) };
+  if (window.CloudClient?.hasToken()) {
+    window.CloudClient.recordActivity({
+      clientEventId: uniqueId,
+      kind,
+      sourceId: uniqueId.split(":").slice(1).join(":") || uniqueId,
+      xpDelta: xpAmount,
+      occurredAt: new Date().toISOString(),
+    }).then(() => window.RewardsUI?.refresh()).catch(() => {});
+  }
+  return result;
 }
 
 function summarize(progress) {
