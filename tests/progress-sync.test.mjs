@@ -37,6 +37,68 @@ test("applyActivity awards one activity once when the id is repeated", () => {
   assert.equal(second.progress.curriculumCount, 1);
 });
 
+test("applyActivity rejects invalid client event ids without changing progress", () => {
+  // Given
+  const started = createEmptyProgress();
+
+  // When
+  const missingId = applyActivity(started, {
+    kind: "curriculum",
+    xpDelta: 25,
+    occurredAt: "2026-09-03T10:15:00.000Z",
+  });
+  const blankId = applyActivity(started, {
+    clientEventId: "   ",
+    kind: "curriculum",
+    xpDelta: 25,
+    occurredAt: "2026-09-03T10:15:00.000Z",
+  });
+
+  // Then
+  assert.deepEqual(missingId, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+  assert.deepEqual(blankId, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+});
+
+test("applyActivity rejects invalid xp deltas without changing progress", () => {
+  // Given
+  const started = createEmptyProgress();
+  const baseActivity = {
+    clientEventId: "curriculum:greeting:complete",
+    kind: "curriculum",
+    occurredAt: "2026-09-03T10:15:00.000Z",
+  };
+
+  // When
+  const stringXp = applyActivity(started, { ...baseActivity, xpDelta: "25" });
+  const nanXp = applyActivity(started, { ...baseActivity, clientEventId: "nan", xpDelta: Number.NaN });
+  const negativeXp = applyActivity(started, { ...baseActivity, clientEventId: "negative", xpDelta: -1 });
+  const fractionalXp = applyActivity(started, { ...baseActivity, clientEventId: "fractional", xpDelta: 1.5 });
+  const infiniteXp = applyActivity(started, { ...baseActivity, clientEventId: "infinite", xpDelta: Infinity });
+
+  // Then
+  assert.deepEqual(stringXp, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+  assert.deepEqual(nanXp, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+  assert.deepEqual(negativeXp, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+  assert.deepEqual(fractionalXp, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+  assert.deepEqual(infiniteXp, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+});
+
+test("applyActivity rejects invalid occurredAt values without changing progress", () => {
+  // Given
+  const started = createEmptyProgress();
+
+  // When
+  const invalidDate = applyActivity(started, {
+    clientEventId: "curriculum:greeting:complete",
+    kind: "curriculum",
+    xpDelta: 25,
+    occurredAt: "2026-99-99T10:15:00.000Z",
+  });
+
+  // Then
+  assert.deepEqual(invalidDate, { awarded: false, progress: started, error: "INVALID_ACTIVITY" });
+});
+
 test("rewardEligibility reports active requiredXp milestones until claimed", () => {
   // Given
   const summary = summarizeProgress({

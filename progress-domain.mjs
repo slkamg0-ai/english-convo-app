@@ -37,6 +37,27 @@ function copyStringList(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
 }
 
+function isValidClientEventId(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidXpDelta(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function activityDateFromOccurredAt(value) {
+  if (!value) return null;
+  if (typeof value !== "string") return undefined;
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) return undefined;
+
+  const activityDate = value.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(activityDate)) return undefined;
+  if (parsedDate.toISOString().slice(0, 10) !== activityDate) return undefined;
+  return activityDate;
+}
+
 function normalizeProgress(progress) {
   return {
     xp: Number.isFinite(progress?.xp) ? progress.xp : 0,
@@ -69,6 +90,15 @@ export function createEmptyProgress() {
 
 export function applyActivity(progress, activity) {
   const nextProgress = normalizeProgress(progress);
+  const activityDate = activityDateFromOccurredAt(activity?.occurredAt);
+  if (
+    !isValidClientEventId(activity?.clientEventId) ||
+    !isValidXpDelta(activity?.xpDelta) ||
+    activityDate === undefined
+  ) {
+    return { awarded: false, progress: nextProgress, error: "INVALID_ACTIVITY" };
+  }
+
   if (nextProgress.rewardedIds.includes(activity.clientEventId)) {
     return { awarded: false, progress: nextProgress };
   }
@@ -79,7 +109,6 @@ export function applyActivity(progress, activity) {
   const countField = countFieldForKind(activity.kind);
   if (countField) nextProgress[countField] += 1;
 
-  const activityDate = activity.occurredAt ? activity.occurredAt.slice(0, 10) : null;
   if (activityDate && nextProgress.lastActivityDate !== activityDate) {
     const continuesStreak =
       nextProgress.lastActivityDate && daysBetween(nextProgress.lastActivityDate, activityDate) === 1;
