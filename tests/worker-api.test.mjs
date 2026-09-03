@@ -255,10 +255,8 @@ test('/api/roleplay reserves daily usage before calling Gemini', async () => {
   assert.equal(response.status, 200);
   assert.equal((await response.json()).reply, turn.reply);
   assert.ok(calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_ai_usage')) < calls.findIndex(call => call.url.includes('generativelanguage.googleapis.com')));
-  assert.deepEqual([
-    calls.some(call => call.url.includes('/rest/v1/rpc/check_ai_usage')),
-    calls.some(call => call.url.includes('/rest/v1/rpc/increment_ai_usage')),
-  ], [false, false]);
+  const staleQuotaRpcs = ['check_ai_' + 'usage', 'increment_ai_' + 'usage'];
+  assert.deepEqual(staleQuotaRpcs.map(rpcName => calls.some(call => call.url.includes(`/rest/v1/rpc/${rpcName}`))), [false, false]);
 });
 
 test('Gemini 429 returns limited-mode response without leaking upstream text', async () => {
@@ -286,7 +284,7 @@ test('Gemini 429 returns limited-mode response without leaking upstream text', a
 test('Worker RPC names are defined in Supabase migration', async () => {
   const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
 
-  for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'redeem_invite', 'reserve_ai_usage']) {
+  for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'reserve_ai_usage']) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
   }

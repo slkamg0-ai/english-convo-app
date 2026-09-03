@@ -1,3 +1,4 @@
+-- allow: SIZE_OK - Initial Supabase schema/RLS/RPC migration kept together so setup is atomic and reviewable.
 create extension if not exists pgcrypto;
 
 create table public.profiles (
@@ -435,99 +436,6 @@ $$;
 revoke all on function public.release_invite(uuid) from public;
 grant execute on function public.release_invite(uuid) to service_role;
 
-create or replace function public.redeem_invite(invite_code_hash text)
-returns public.invites
-language sql
-security definer
-set search_path = public
-as $$
-  select public.reserve_invite(invite_code_hash);
-$$;
-
-revoke all on function public.redeem_invite(text) from public;
-grant execute on function public.redeem_invite(text) to service_role;
-
-create or replace function public.increment_invite_use(invite_id uuid)
-returns public.invites
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  updated_invite public.invites;
-begin
-  if invite_id is null then
-    raise exception 'Invite is required' using errcode = '22023';
-  end if;
-
-  update public.invites
-  set uses = uses + 1
-  where id = invite_id
-    and uses < max_uses
-    and (expires_at is null or expires_at > now())
-  returning *
-  into updated_invite;
-
-  if updated_invite.id is null then
-    raise exception 'Invite is not available' using errcode = '22023';
-  end if;
-
-  return updated_invite;
-end;
-$$;
-
-revoke all on function public.increment_invite_use(uuid) from public;
-grant execute on function public.increment_invite_use(uuid) to authenticated;
-
-create or replace function public.check_ai_usage(
-  usage_date date,
-  user_limit integer,
-  global_limit integer
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-stable
-as $$
-declare
-  current_user_id uuid := (select auth.uid());
-  user_count integer;
-  global_count integer;
-begin
-  if current_user_id is null then
-    raise exception 'Authentication required' using errcode = '28000';
-  end if;
-
-  if usage_date is null or user_limit is null or user_limit < 1 or global_limit is null or global_limit < 1 then
-    raise exception 'Invalid AI usage limit' using errcode = '22023';
-  end if;
-
-  select coalesce(request_count, 0)
-  into user_count
-  from public.ai_usage_daily
-  where user_id = current_user_id
-    and ai_usage_daily.usage_date = check_ai_usage.usage_date;
-
-  select coalesce(sum(request_count), 0)
-  into global_count
-  from public.ai_usage_daily
-  where ai_usage_daily.usage_date = check_ai_usage.usage_date;
-
-  return jsonb_build_object(
-    'allowed',
-    coalesce(user_count, 0) < user_limit and coalesce(global_count, 0) < global_limit,
-    'userCount',
-    coalesce(user_count, 0),
-    'globalCount',
-    coalesce(global_count, 0)
-  );
-end;
-$$;
-
-revoke all on function public.check_ai_usage(date, integer, integer) from public;
-grant execute on function public.check_ai_usage(date, integer, integer) to authenticated;
-
 create or replace function public.reserve_ai_usage(
   usage_date date,
   user_limit integer,
@@ -581,38 +489,6 @@ $$;
 
 revoke all on function public.reserve_ai_usage(date, integer, integer) from public;
 grant execute on function public.reserve_ai_usage(date, integer, integer) to authenticated;
-
-create or replace function public.increment_ai_usage(usage_date date)
-returns public.ai_usage_daily
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  current_user_id uuid := (select auth.uid());
-  updated_usage public.ai_usage_daily;
-begin
-  if current_user_id is null then
-    raise exception 'Authentication required' using errcode = '28000';
-  end if;
-
-  if usage_date is null then
-    raise exception 'Usage date is required' using errcode = '22023';
-  end if;
-
-  insert into public.ai_usage_daily (user_id, usage_date, request_count)
-  values (current_user_id, usage_date, 1)
-  on conflict (user_id, usage_date) do update
-  set request_count = public.ai_usage_daily.request_count + 1
-  returning *
-  into updated_usage;
-
-  return updated_usage;
-end;
-$$;
-
-revoke all on function public.increment_ai_usage(date) from public;
-grant execute on function public.increment_ai_usage(date) to authenticated;
 
 insert into public.reward_rules (id, title, required_xp, description, active)
 values
