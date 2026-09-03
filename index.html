@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>LAKE영어회화연습</title>
+<meta name="description" content="상황별 영어 회화, Gemini AI 대화와 복습을 연습하는 학습 앱입니다." />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -23,7 +24,7 @@
     <section id="home" class="tab-panel active">
       <div class="card intro-card">
         <h2>무엇을 연습해볼까요?</h2>
-        <p>브라우저 음성인식/합성 기능만 사용하는 무료 프로토타입입니다. 서버나 API 비용 없이 동작합니다.</p>
+        <p>매일 조금씩, 실제 상황에서 쓸 영어를 연습하세요. 기본 연습은 바로 사용할 수 있고, AI 상황극은 Gemini 무료 등급을 연결해 이용합니다.</p>
         <div class="home-actions">
           <button class="primary-btn" data-goto="curriculum">200일 코스 시작</button>
           <button class="secondary-btn" data-goto="roleplay">상황극 연습</button>
@@ -36,7 +37,7 @@
         <h2>음성 설정</h2>
         <p class="note">기기에 설치된 음성 중 자동으로 가장 자연스러운 영어 음성을 골라둡니다. 마음에 드는 목소리로 직접 바꿀 수도 있어요.</p>
         <div class="voice-select-row">
-          <select id="voice-select"></select>
+          <select id="voice-select" aria-label="영어 음성 선택"></select>
           <button id="voice-test-btn" class="secondary-btn">🔊 테스트</button>
         </div>
       </div>
@@ -70,9 +71,41 @@
     </section>
 
     <section id="roleplay" class="tab-panel">
+      <div id="ai-controls" class="card ai-card">
+        <fieldset class="ai-mode-picker">
+          <legend>어떻게 연습할까요?</legend>
+          <label><input type="radio" name="roleplay-mode" value="scripted" checked /> 기본 상황극</label>
+          <label><input type="radio" name="roleplay-mode" value="ai" /> Gemini AI 대화</label>
+        </fieldset>
+        <p class="note">AI는 내 답변을 기억하며 질문을 이어갑니다. 무료 등급의 사용량 제한이 적용됩니다.</p>
+        <p id="ai-connection-status" class="ai-status" role="status">AI 연결 상태를 확인하고 있습니다.</p>
+        <details id="ai-setup" class="ai-setup">
+          <summary>Gemini 무료 연결 설정</summary>
+          <ol class="ai-setup-steps">
+            <li><a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Google AI Studio에서 API 키 만들기</a></li>
+            <li>해당 프로젝트가 <strong>Free Tier</strong>이며 결제가 연결되지 않았는지 확인하세요. 유료 전환이나 결제 등록은 하지 않습니다.</li>
+            <li>아래에 키를 입력합니다. 키는 이 PC의 실행 중인 서버 메모리에만 보관되며 서버 종료 시 사라집니다.</li>
+          </ol>
+          <p class="note">이 앱은 API 키만으로 결제 상태를 확인할 수 없습니다. 무료 등급에서는 대화 내용이 Google 제품 개선에 사용될 수 있으므로 개인정보를 넣지 마세요. <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer">무료 조건 확인</a></p>
+          <form id="ai-setup-form" class="ai-form">
+            <label for="ai-api-key">Gemini API 키</label>
+            <input id="ai-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="이 PC에서만 연결할 키" required minlength="20" maxlength="256" />
+            <label class="ai-checkbox"><input id="ai-free-confirmed" type="checkbox" required /> 이 키의 프로젝트가 Free Tier이고 결제가 연결되지 않았음을 확인했습니다.</label>
+            <div class="ai-actions">
+              <button id="ai-save-key" class="primary-btn" type="submit">무료 프로젝트로 연결</button>
+              <button id="ai-disconnect" class="secondary-btn" type="button" disabled>키 지우기</button>
+            </div>
+          </form>
+          <p id="ai-setup-status" class="ai-status" role="status"></p>
+          <p class="note">한도에 도달하면 AI 호출을 중단합니다. 한도가 회복된 뒤 키를 다시 연결하세요. 유료 모델로 자동 전환하지 않습니다.</p>
+        </details>
+        <label class="ai-level" for="ai-level">AI 대화 난이도
+          <select id="ai-level"><option value="beginner">초급 · 짧고 쉬운 문장</option><option value="intermediate">중급 · 자연스러운 문장</option></select>
+        </label>
+      </div>
       <div id="scenario-select" class="card">
         <h2>상황 선택</h2>
-        <input id="scenario-search" type="text" class="scenario-search-input" placeholder="🔍 상황 검색 (예: 호텔, 커피, 은행...)" />
+        <input id="scenario-search" aria-label="상황 검색" type="text" class="scenario-search-input" placeholder="🔍 상황 검색 (예: 호텔, 커피, 은행...)" />
         <p id="scenario-count" class="note"></p>
         <div id="scenario-list" class="scenario-list"></div>
       </div>
@@ -118,6 +151,51 @@
           <p>🎉 상황극을 완료했습니다!</p>
           <button id="restart-scenario" class="secondary-btn">다시 하기</button>
         </div>
+      </div>
+
+      <div id="ai-play" class="card ai-card hidden">
+        <button id="ai-back" class="link-btn" type="button">← 상황 목록으로</button>
+        <div class="ai-heading-row"><h2 id="ai-scenario-title"></h2><span class="ai-badge">Gemini AI</span></div>
+        <p id="ai-session-info" class="note"></p>
+        <p id="ai-retry-goal" class="ai-retry-goal hidden"></p>
+        <ol id="ai-messages" class="ai-messages" aria-label="영어 대화 기록"></ol>
+        <p id="ai-status" class="ai-status" role="status" aria-live="polite"></p>
+        <div id="ai-assistance" class="hidden">
+          <div class="ai-actions">
+            <button id="ai-replay" class="secondary-btn" type="button">다시 듣기</button>
+            <button id="ai-slow" class="secondary-btn" type="button">천천히 듣기</button>
+          </div>
+          <details id="ai-translation"><summary>한국어 해석</summary><p id="ai-translation-text"></p></details>
+          <details id="ai-hint"><summary>막힐 때 예문 힌트</summary><p id="ai-hint-text" lang="en"></p><p id="ai-hint-ko" class="note"></p></details>
+        </div>
+        <div id="ai-input-area">
+          <div class="ai-voice-options">
+            <label class="ai-checkbox"><input id="ai-autoplay" type="checkbox" checked /> AI 답변 읽어주기</label>
+            <label class="ai-checkbox"><input id="ai-handsfree" type="checkbox" /> 답변 후 자동으로 듣기</label>
+          </div>
+          <button id="ai-mic" class="mic-btn" type="button">눌러서 말하기</button>
+          <p id="ai-mic-status" class="note" role="status"></p>
+          <form id="ai-answer-form" class="ai-form">
+            <label for="ai-answer">내 답변</label>
+            <div class="ai-answer-row"><input id="ai-answer" type="text" maxlength="1000" placeholder="영어로 말하거나 입력하세요" autocomplete="off" /><button id="ai-send" class="primary-btn" type="submit">보내기</button></div>
+          </form>
+        </div>
+        <div class="ai-actions ai-session-actions">
+          <button id="ai-finish" class="primary-btn" type="button" disabled>대화 마치고 복습</button>
+          <button id="ai-retry" class="secondary-btn hidden" type="button">다시 시도</button>
+          <button id="ai-fallback" class="link-btn" type="button">기본 상황극으로 연습</button>
+        </div>
+        <section id="ai-review" class="ai-review hidden" aria-label="이번 대화 복습">
+          <h3>이번 대화 돌아보기</h3>
+          <div id="ai-review-content"></div>
+          <p id="ai-save-status" class="note" role="status"></p>
+          <button id="ai-practice-again" class="primary-btn" type="button">이 표현으로 다시 대화하기</button>
+        </section>
+      </div>
+      <div id="ai-saved" class="card ai-card">
+        <div class="ai-heading-row"><h2>AI 대화 복습 노트</h2><button id="ai-clear-reviews" class="link-btn" type="button">기록 지우기</button></div>
+        <p class="note">이 브라우저에 최근 20회의 교정 표현을 저장합니다.</p>
+        <div id="ai-saved-list"></div>
       </div>
     </section>
 
@@ -195,6 +273,11 @@
   <script src="curriculum-data.js"></script>
   <script src="roleplay-data.js"></script>
   <script src="progress.js"></script>
+  <script src="ai-roleplay-core.js"></script>
+  <script src="ai-roleplay-connection.js"></script>
+  <script src="ai-roleplay-speech.js"></script>
+  <script src="ai-roleplay-reviews.js"></script>
   <script src="app.js"></script>
+  <script src="ai-roleplay.js"></script>
 </body>
 </html>
