@@ -75,11 +75,24 @@ class SupabaseClient {
     return { token, user, profile };
   }
 
-  async redeemInvite(inviteCodeHash) {
+  async reserveInvite(inviteCodeHash) {
     try {
-      return await this.rpc('redeem_invite', { invite_code_hash: inviteCodeHash }, this.env.SUPABASE_SERVICE_ROLE_KEY);
+      return await this.rpc('reserve_invite', { invite_code_hash: inviteCodeHash }, this.env.SUPABASE_SERVICE_ROLE_KEY);
     } catch (error) {
       if (error instanceof HttpError) throw new HttpError(403, 'INVITE_UNAVAILABLE');
+      throw error;
+    }
+  }
+
+  async releaseInvite(inviteId) {
+    return this.rpc('release_invite', { invite_id: inviteId }, this.env.SUPABASE_SERVICE_ROLE_KEY);
+  }
+
+  async reserveAiUsage(limits, key) {
+    try {
+      return await this.rpc('reserve_ai_usage', limits, key);
+    } catch (error) {
+      if (error instanceof HttpError) throw new HttpError(429, 'AI_DAILY_LIMIT');
       throw error;
     }
   }
@@ -122,9 +135,7 @@ function requireAdmin(session) {
 }
 
 function validateSignup(body) {
-  if (!requiredString(body?.email, 254) || !requiredString(body?.password, 128) || !requiredString(body?.inviteCode, 128)) {
-    throw new HttpError(400, 'INVALID_REQUEST');
-  }
+  if (!requiredString(body?.email, 254) || !requiredString(body?.password, 128) || !requiredString(body?.inviteCode, 128)) throw new HttpError(400, 'INVALID_REQUEST');
 }
 
 function displayNameFromEmail(email) {
@@ -143,10 +154,15 @@ function validateInvite(body) {
 async function handleSignup(request, supabase) {
   const body = await readBody(request);
   validateSignup(body);
-  await supabase.redeemInvite(await inviteHash(body.inviteCode));
-  const user = await supabase.createUser(body);
-  await supabase.createProfile(user, signupDisplayName(body));
-  return json({ user: { id: user.id, email: user.email } });
+  const invite = await supabase.reserveInvite(await inviteHash(body.inviteCode));
+  try {
+    const user = await supabase.createUser(body);
+    await supabase.createProfile(user, signupDisplayName(body));
+    return json({ user: { id: user.id, email: user.email } });
+  } catch (error) {
+    await supabase.releaseInvite(invite.id);
+    throw error;
+  }
 }
 
 async function handleInviteCreate(request, supabase, session, randomBytes) {
@@ -165,7 +181,7 @@ async function handleInviteCreate(request, supabase, session, randomBytes) {
 
 async function handleInviteList(supabase, session) {
   requireAdmin(session);
-  const invites = await supabase.request('/rest/v1/invites?select=id,code_hash,max_uses,uses,expires_at,created_by,created_at&order=created_at.desc', {
+  const invites = await supabase.request('/rest/v1/invites?select=id,max_uses,uses,expires_at,created_by,created_at&order=created_at.desc', {
     method: 'GET',
     key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
   });
@@ -212,27 +228,21 @@ async function handleClaims(request, supabase, session) {
 async function handleRoleplay(request, env, supabase, session, fetchImpl, now) {
   const body = await readBody(request);
   const turns = validate(body);
-  const usage = await supabase.rpc('check_ai_usage', {
+  await supabase.reserveAiUsage({
     usage_date: now().toISOString().slice(0, 10),
     user_limit: limit(env.AI_DAILY_USER_LIMIT),
     global_limit: limit(env.AI_DAILY_GLOBAL_LIMIT),
   }, session.token);
-  if (usage?.allowed === false) throw new HttpError(429, 'AI_DAILY_LIMIT');
   const upstream = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify(generation(body, turns)),
   });
   if (upstream.status === 429) {
-    return json({
-      ai: { status: 'limited' },
-      fallback: 'scripted',
-      message: 'AI practice is limited right now. Try the scenario prompt and sample answer while the quota resets.',
-    });
+    return json({ ai: { status: 'limited' }, fallback: 'scripted', message: 'AI practice is limited right now. Try the scenario prompt and sample answer while the quota resets.' });
   }
   if (!upstream.ok) throw new HttpError(502, 'UPSTREAM_ERROR');
   const result = parseOutput(await upstream.json(), body, turns);
-  await supabase.rpc('increment_ai_usage', { usage_date: now().toISOString().slice(0, 10) }, session.token);
   return json(result);
 }
 

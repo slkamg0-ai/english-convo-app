@@ -3,19 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createWorker } from '../worker/src/index.js';
 
-const env = {
-  SUPABASE_URL: 'https://supabase.test',
-  SUPABASE_ANON_KEY: 'anon-key',
-  SUPABASE_SERVICE_ROLE_KEY: 'service-key',
-  GEMINI_API_KEY: 'gemini-key',
-  AI_DAILY_USER_LIMIT: '3',
-  AI_DAILY_GLOBAL_LIMIT: '30',
-};
+const env = { SUPABASE_URL: 'https://supabase.test', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key', GEMINI_API_KEY: 'gemini-key', AI_DAILY_USER_LIMIT: '3', AI_DAILY_GLOBAL_LIMIT: '30' };
 
 const json = body => JSON.parse(body);
 const responseJson = (body, status = 200) => new Response(JSON.stringify(body), { status });
-const authHeaders = { Authorization: 'Bearer user-token' };
-const adminHeaders = { Authorization: 'Bearer admin-token' };
+const authHeaders = { Authorization: 'Bearer user-token' }, adminHeaders = { Authorization: 'Bearer admin-token' };
 const scenario = { title: 'Cafe', description: 'Order coffee', opening: 'Hello!', openingKo: '안녕하세요', hint: 'A coffee, please.', hintKo: '커피 주세요' };
 const turn = { reply: 'Would you like milk?', translation: '우유를 넣을까요?', hint: 'Yes, please.', hintKo: '네 주세요', goalReached: false };
 
@@ -68,9 +60,9 @@ test('unauthenticated progress, reward, and admin calls return 401', async () =>
   }
 });
 
-test('POST /api/auth/signup redeems invite before account creation and creates profile', async () => {
+test('POST /api/auth/signup reserves invite before account creation and creates profile', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
-    if (call.url.includes('/rest/v1/rpc/redeem_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
+    if (call.url.includes('/rest/v1/rpc/reserve_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
     if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ id: 'created-user', email: call.body.email });
     if (call.url.includes('/rest/v1/profiles')) return responseJson([{ user_id: call.body.user_id, display_name: call.body.display_name, role: 'user' }], 201);
     throw new Error(`Unhandled mock URL: ${call.url}`);
@@ -83,12 +75,10 @@ test('POST /api/auth/signup redeems invite before account creation and creates p
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { user: { id: 'created-user', email: 'new@test.local' } });
-  const redeemIndex = calls.findIndex(call => call.url.includes('/rest/v1/rpc/redeem_invite'));
+  const redeemIndex = calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_invite'));
   const authIndex = calls.findIndex(call => call.url.endsWith('/auth/v1/admin/users'));
   const profileIndex = calls.findIndex(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
-  assert.ok(redeemIndex > -1);
-  assert.ok(redeemIndex < authIndex);
-  assert.ok(authIndex < profileIndex);
+  assert.ok(redeemIndex > -1 && redeemIndex < authIndex && authIndex < profileIndex);
   assert.equal(calls[redeemIndex].body.invite_code_hash.length, 64);
   const profileInsert = calls.find(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
   assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'Site Captain', role: 'user' });
@@ -97,7 +87,7 @@ test('POST /api/auth/signup redeems invite before account creation and creates p
 
 test('POST /api/auth/signup rejects unavailable invites before auth user creation', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
-    if (call.url.includes('/rest/v1/rpc/redeem_invite')) return responseJson({ error: 'unavailable' }, 409);
+    if (call.url.includes('/rest/v1/rpc/reserve_invite')) return responseJson({ error: 'unavailable' }, 409);
     throw new Error(`Auth should not be called after failed redemption: ${call.url}`);
   });
   const api = worker(fetchImpl);
@@ -107,9 +97,49 @@ test('POST /api/auth/signup rejects unavailable invites before auth user creatio
   }), env);
 
   assert.equal(response.status, 403);
-  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/redeem_invite')));
-  assert.equal(calls.some(call => call.url.endsWith('/auth/v1/admin/users')), false);
+  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/reserve_invite')));
+  assert.deepEqual([
+    calls.some(call => call.url.endsWith('/auth/v1/admin/users')),
+    calls.some(call => call.url.includes('/rest/v1/profiles')),
+  ], [false, false]);
+});
+
+test('POST /api/auth/signup releases reserved invite when auth user creation fails', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.includes('/rest/v1/rpc/reserve_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
+    if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ error: 'duplicate email' }, 409);
+    if (call.url.includes('/rest/v1/rpc/release_invite')) return responseJson({ id: 'invite-1', uses: 0, max_uses: 1 });
+    throw new Error(`Unexpected signup call: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/auth/signup', {
+    body: { email: 'dupe@test.local', password: 'secret123', displayName: 'Duplicate', inviteCode: 'JOIN-2026' },
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.ok(calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_invite')) < calls.findIndex(call => call.url.endsWith('/auth/v1/admin/users')));
+  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/release_invite') && call.body.invite_id === 'invite-1'));
   assert.equal(calls.some(call => call.url.includes('/rest/v1/profiles')), false);
+});
+
+test('POST /api/auth/signup releases reserved invite when profile creation fails', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.includes('/rest/v1/rpc/reserve_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
+    if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ id: 'created-user', email: call.body.email });
+    if (call.url.includes('/rest/v1/profiles')) return responseJson({ error: 'profile failed' }, 500);
+    if (call.url.includes('/rest/v1/rpc/release_invite')) return responseJson({ id: 'invite-1', uses: 0, max_uses: 1 });
+    throw new Error(`Unexpected signup call: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/auth/signup', {
+    body: { email: 'profile-fail@test.local', password: 'secret123', displayName: 'Profile Fail', inviteCode: 'JOIN-2026' },
+  }), env);
+
+  assert.equal(response.status, 500);
+  assert.ok(calls.some(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST'));
+  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/release_invite') && call.body.invite_id === 'invite-1'));
 });
 
 test('POST /api/admin/invites creates a hashed invite code record and returns the plain code once', async () => {
@@ -136,7 +166,6 @@ test('POST /api/admin/invites creates a hashed invite code record and returns th
 test('GET /api/admin/invites lists invite metadata for admins only without plain codes', async () => {
   const invites = [{
     id: 'invite-1',
-    code_hash: 'a'.repeat(64),
     max_uses: 2,
     uses: 1,
     expires_at: '2026-09-30T00:00:00.000Z',
@@ -145,7 +174,10 @@ test('GET /api/admin/invites lists invite metadata for admins only without plain
   }];
   const { fetchImpl } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
-    if (call.url.includes('/rest/v1/invites')) return responseJson(invites);
+    if (call.url.includes('/rest/v1/invites')) {
+      assert.equal(call.url.includes('code_hash'), false);
+      return responseJson(invites);
+    }
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
   const api = worker(fetchImpl);
@@ -155,9 +187,7 @@ test('GET /api/admin/invites lists invite metadata for admins only without plain
   const userResponse = await api.fetch(request('/api/admin/invites', { method: 'GET', headers: authHeaders }), env);
 
   assert.equal(adminResponse.status, 200);
-  assert.deepEqual(adminBody, { invites });
-  assert.equal(JSON.stringify(adminBody).includes('JOIN-2026'), false);
-  assert.equal(userResponse.status, 403);
+  assert.deepEqual([adminBody, JSON.stringify(adminBody).includes('JOIN-2026'), userResponse.status], [{ invites }, false, 403]);
 });
 
 test('authenticated /api/progress calls Supabase RPC record_activity', async () => {
@@ -208,11 +238,10 @@ test('/api/admin/claims rejects non-admin profiles', async () => {
   assert.equal(response.status, 403);
 });
 
-test('/api/roleplay checks daily usage before calling Gemini', async () => {
+test('/api/roleplay reserves daily usage before calling Gemini', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
-    if (call.url.includes('/rest/v1/rpc/check_ai_usage')) return responseJson({ allowed: true });
-    if (call.url.includes('/rest/v1/rpc/increment_ai_usage')) return responseJson({ request_count: 1 });
+    if (call.url.includes('/rest/v1/rpc/reserve_ai_usage')) return responseJson({ user_id: 'user-1', usage_date: '2026-09-04', request_count: 1 });
     if (call.url.includes('generativelanguage.googleapis.com')) return responseJson({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(turn) }] } }] });
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
@@ -225,13 +254,17 @@ test('/api/roleplay checks daily usage before calling Gemini', async () => {
 
   assert.equal(response.status, 200);
   assert.equal((await response.json()).reply, turn.reply);
-  assert.ok(calls.findIndex(call => call.url.includes('/rest/v1/rpc/check_ai_usage')) < calls.findIndex(call => call.url.includes('generativelanguage.googleapis.com')));
+  assert.ok(calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_ai_usage')) < calls.findIndex(call => call.url.includes('generativelanguage.googleapis.com')));
+  assert.deepEqual([
+    calls.some(call => call.url.includes('/rest/v1/rpc/check_ai_usage')),
+    calls.some(call => call.url.includes('/rest/v1/rpc/increment_ai_usage')),
+  ], [false, false]);
 });
 
 test('Gemini 429 returns limited-mode response without leaking upstream text', async () => {
   const { fetchImpl } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
-    if (call.url.includes('/rest/v1/rpc/check_ai_usage')) return responseJson({ allowed: true });
+    if (call.url.includes('/rest/v1/rpc/reserve_ai_usage')) return responseJson({ user_id: 'user-1', usage_date: '2026-09-04', request_count: 1 });
     if (call.url.includes('generativelanguage.googleapis.com')) return new Response('SECRET quota details', { status: 429 });
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
@@ -253,7 +286,7 @@ test('Gemini 429 returns limited-mode response without leaking upstream text', a
 test('Worker RPC names are defined in Supabase migration', async () => {
   const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
 
-  for (const rpcName of ['redeem_invite', 'increment_invite_use', 'check_ai_usage', 'increment_ai_usage']) {
+  for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'redeem_invite', 'reserve_ai_usage']) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
   }
