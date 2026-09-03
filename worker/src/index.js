@@ -244,6 +244,19 @@ async function handleProgress(request, supabase, session) {
   return json({ progress });
 }
 
+function progressSummary(progressRows) {
+  const progress = Array.isArray(progressRows) && progressRows[0] ? progressRows[0] : {};
+  return { xp: progress.total_xp || 0, currentStreak: progress.current_streak || 0, totalActivities: progress.completed_count || 0 };
+}
+
+async function handleProgressSummary(supabase, session) {
+  const progressRows = await supabase.request(`/rest/v1/progress_summaries?user_id=eq.${encodeURIComponent(session.user.id)}&select=total_xp,current_streak,completed_count`, {
+    method: 'GET',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  return json({ summary: progressSummary(progressRows) });
+}
+
 async function handleRewards(supabase, session) {
   const progressRows = await supabase.request(`/rest/v1/progress_summaries?user_id=eq.${encodeURIComponent(session.user.id)}&select=total_xp,current_streak,completed_count`, {
     method: 'GET',
@@ -257,8 +270,7 @@ async function handleRewards(supabase, session) {
     method: 'GET',
     key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
   });
-  const progress = Array.isArray(progressRows) && progressRows[0] ? progressRows[0] : {};
-  const summary = { xp: progress.total_xp || 0, currentStreak: progress.current_streak || 0, totalActivities: progress.completed_count || 0 };
+  const summary = progressSummary(progressRows);
   const claimed = new Set((Array.isArray(claims) ? claims : []).map(claim => claim.reward_rule_id));
   return json({
     summary,
@@ -358,6 +370,7 @@ export function createWorker(deps = {}) {
         if (url.pathname === '/api/session' && request.method === 'GET') return json({ user: publicUser(session), session: { active: true } });
         if (url.pathname === '/api/admin/invites' && request.method === 'POST') return await handleInviteCreate(request, supabase, session, randomBytes);
         if (url.pathname === '/api/admin/invites' && request.method === 'GET') return await handleInviteList(supabase, session);
+        if (url.pathname === '/api/progress' && request.method === 'GET') return await handleProgressSummary(supabase, session);
         if ((url.pathname === '/api/progress' || url.pathname === '/api/progress/activity') && request.method === 'POST') return await handleProgress(request, supabase, session);
         if (url.pathname === '/api/rewards' && request.method === 'GET') return await handleRewards(supabase, session);
         if (url.pathname === '/api/rewards/claim' && request.method === 'POST') return await handleRewardClaim(request, supabase, session);

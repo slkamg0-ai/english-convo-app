@@ -239,6 +239,34 @@ test('authenticated /api/progress calls Supabase RPC record_activity', async () 
   assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.xp_delta, 50);
 });
 
+test('GET /api/progress returns browser progress summary shape', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/progress_summaries')) return responseJson([{ total_xp: 240, current_streak: 3, completed_count: 12 }]);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress', { method: 'GET', headers: authHeaders }), env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { summary: { xp: 240, currentStreak: 3, totalActivities: 12 } });
+});
+
+test('GET /api/progress returns empty progress when no summary row exists', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/progress_summaries')) return responseJson([]);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress', { method: 'GET', headers: authHeaders }), env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { summary: { xp: 0, currentStreak: 0, totalActivities: 0 } });
+});
+
 test('POST /api/progress/activity uses the same record_activity RPC contract', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
