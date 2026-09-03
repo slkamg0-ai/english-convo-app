@@ -15,16 +15,18 @@ test("applyActivity awards one activity once when the id is repeated", () => {
 
   // When
   const first = applyActivity(started, {
-    id: "curriculum:greeting:complete",
-    xp: 25,
+    clientEventId: "curriculum:greeting:complete",
     kind: "curriculum",
-    date: "2026-09-03",
+    sourceId: "greeting",
+    xpDelta: 25,
+    occurredAt: "2026-09-03T10:15:00.000Z",
   });
   const second = applyActivity(first.progress, {
-    id: "curriculum:greeting:complete",
-    xp: 25,
+    clientEventId: "curriculum:greeting:complete",
     kind: "curriculum",
-    date: "2026-09-03",
+    sourceId: "greeting",
+    xpDelta: 25,
+    occurredAt: "2026-09-03T10:15:00.000Z",
   });
 
   // Then
@@ -35,27 +37,35 @@ test("applyActivity awards one activity once when the id is repeated", () => {
   assert.equal(second.progress.curriculumCount, 1);
 });
 
-test("rewardEligibility makes earned milestones claimable until claimed", () => {
+test("rewardEligibility reports active requiredXp milestones until claimed", () => {
   // Given
   const summary = summarizeProgress({
     ...createEmptyProgress(),
     xp: 125,
   });
   const rewardRules = [
-    { id: "xp_100", xp: 100, label: "100 XP" },
-    { id: "xp_200", xp: 200, label: "200 XP" },
+    { id: "xp_100", requiredXp: 100, active: true, label: "100 XP" },
+    { id: "xp_200", requiredXp: 200, active: true, label: "200 XP" },
+    { id: "retired_50", requiredXp: 50, active: false, label: "Retired" },
   ];
 
   // When
   const beforeClaim = rewardEligibility(summary, rewardRules, []);
-  const afterClaim = rewardEligibility(summary, rewardRules, ["xp_100"]);
+  const afterClaim = rewardEligibility(summary, rewardRules, [{ rewardRuleId: "xp_100" }]);
 
   // Then
-  assert.deepEqual(
-    beforeClaim.map((reward) => reward.id),
-    ["xp_100"],
-  );
-  assert.deepEqual(afterClaim, []);
+  assert.deepEqual(beforeClaim, [
+    { id: "xp_100", requiredXp: 100, active: true, eligible: true, claimed: false },
+    { id: "xp_200", requiredXp: 200, active: true, eligible: false, claimed: false },
+    { id: "retired_50", requiredXp: 50, active: false, eligible: false, claimed: false },
+  ]);
+  assert.deepEqual(afterClaim[0], {
+    id: "xp_100",
+    requiredXp: 100,
+    active: true,
+    eligible: false,
+    claimed: true,
+  });
 });
 
 test("summarizeProgress returns the current progress summary fields", () => {

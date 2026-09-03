@@ -69,26 +69,27 @@ export function createEmptyProgress() {
 
 export function applyActivity(progress, activity) {
   const nextProgress = normalizeProgress(progress);
-  if (nextProgress.rewardedIds.includes(activity.id)) {
+  if (nextProgress.rewardedIds.includes(activity.clientEventId)) {
     return { awarded: false, progress: nextProgress };
   }
 
-  nextProgress.rewardedIds = [...nextProgress.rewardedIds, activity.id];
-  nextProgress.xp += activity.xp;
+  nextProgress.rewardedIds = [...nextProgress.rewardedIds, activity.clientEventId];
+  nextProgress.xp += activity.xpDelta;
 
   const countField = countFieldForKind(activity.kind);
   if (countField) nextProgress[countField] += 1;
 
-  if (activity.date && nextProgress.lastActivityDate !== activity.date) {
+  const activityDate = activity.occurredAt ? activity.occurredAt.slice(0, 10) : null;
+  if (activityDate && nextProgress.lastActivityDate !== activityDate) {
     const continuesStreak =
-      nextProgress.lastActivityDate && daysBetween(nextProgress.lastActivityDate, activity.date) === 1;
+      nextProgress.lastActivityDate && daysBetween(nextProgress.lastActivityDate, activityDate) === 1;
     nextProgress.currentStreak = continuesStreak ? nextProgress.currentStreak + 1 : 1;
-    nextProgress.lastActivityDate = activity.date;
-    nextProgress.activityDates = [...nextProgress.activityDates, activity.date];
+    nextProgress.lastActivityDate = activityDate;
+    nextProgress.activityDates = [...nextProgress.activityDates, activityDate];
     nextProgress.longestStreak = Math.max(nextProgress.longestStreak, nextProgress.currentStreak);
   }
 
-  return { awarded: true, xpAmount: activity.xp, progress: nextProgress };
+  return { awarded: true, xpAmount: activity.xpDelta, progress: nextProgress };
 }
 
 export function summarizeProgress(progress) {
@@ -114,8 +115,17 @@ export function summarizeProgress(progress) {
 }
 
 export function rewardEligibility(summary, rewardRules, claims) {
-  const claimedIds = new Set(claims);
-  return rewardRules.filter((rule) => summary.xp >= rule.xp && !claimedIds.has(rule.id));
+  const claimedIds = new Set(claims.map((claim) => claim.rewardRuleId));
+  return rewardRules.map((rule) => {
+    const claimed = claimedIds.has(rule.id);
+    return {
+      id: rule.id,
+      requiredXp: rule.requiredXp,
+      active: rule.active,
+      eligible: rule.active && summary.xp >= rule.requiredXp && !claimed,
+      claimed,
+    };
+  });
 }
 
 export function buildMigrationPayload(localProgress) {
