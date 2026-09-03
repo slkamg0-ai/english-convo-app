@@ -24,6 +24,21 @@ const BADGE_DEFS = [
   { id: "level_10", label: "레벨 10 달성", icon: "🌟", desc: "레벨 10에 도달", check: (p) => p.level >= 10 },
 ];
 
+function createEmptyLocalProgress() {
+  return {
+    xp: 0,
+    rewardedIds: [],
+    activityDates: [],
+    currentStreak: 0,
+    longestStreak: 0,
+    lastActivityDate: null,
+    unlockedBadges: [],
+    curriculumCount: 0,
+    roleplayCount: 0,
+    flashcardCount: 0,
+  };
+}
+
 function xpForLevel(level) {
   // Level N requires progressively more XP: 100, 220, 360, 520, ...
   return 100 * level + 20 * level * (level - 1);
@@ -47,18 +62,7 @@ function daysBetween(a, b) {
 function loadProgress() {
   const raw = localStorage.getItem(PROGRESS_KEY);
   if (!raw) {
-    return {
-      xp: 0,
-      rewardedIds: [],
-      activityDates: [],
-      currentStreak: 0,
-      longestStreak: 0,
-      lastActivityDate: null,
-      unlockedBadges: [],
-      curriculumCount: 0,
-      roleplayCount: 0,
-      flashcardCount: 0,
-    };
+    return createEmptyLocalProgress();
   }
   const parsed = JSON.parse(raw);
   parsed.rewardedIds = parsed.rewardedIds || [];
