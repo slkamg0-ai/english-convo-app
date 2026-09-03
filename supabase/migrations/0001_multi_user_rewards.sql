@@ -281,7 +281,9 @@ begin
     on conflict (user_id) do update
     set
       total_xp = public.progress_summaries.total_xp + excluded.total_xp,
+      -- backfill activity earns XP, but older activity must not move or reset the active streak.
       current_streak = case
+        when public.progress_summaries.last_activity_date > excluded.last_activity_date then public.progress_summaries.current_streak
         when public.progress_summaries.last_activity_date = excluded.last_activity_date then public.progress_summaries.current_streak
         when public.progress_summaries.last_activity_date = excluded.last_activity_date - 1 then public.progress_summaries.current_streak + 1
         else 1
