@@ -373,6 +373,38 @@ $$;
 revoke all on function public.claim_reward(uuid) from public;
 grant execute on function public.claim_reward(uuid) to authenticated;
 
+create or replace function public.redeem_invite(invite_code_hash text)
+returns public.invites
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_invite public.invites;
+begin
+  if invite_code_hash is null or length(invite_code_hash) <> 64 then
+    raise exception 'Invite code hash is required' using errcode = '22023';
+  end if;
+
+  update public.invites
+  set uses = uses + 1
+  where code_hash = invite_code_hash
+    and uses < max_uses
+    and (expires_at is null or expires_at > now())
+  returning *
+  into updated_invite;
+
+  if updated_invite.id is null then
+    raise exception 'Invite is not available' using errcode = '22023';
+  end if;
+
+  return updated_invite;
+end;
+$$;
+
+revoke all on function public.redeem_invite(text) from public;
+grant execute on function public.redeem_invite(text) to authenticated;
+
 create or replace function public.increment_invite_use(invite_id uuid)
 returns public.invites
 language plpgsql

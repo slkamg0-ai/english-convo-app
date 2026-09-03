@@ -75,12 +75,13 @@ class SupabaseClient {
     return { token, user, profile };
   }
 
-  async findInvite(codeHash) {
-    const rows = await this.request(`/rest/v1/invites?code_hash=eq.${encodeURIComponent(codeHash)}&select=id,code_hash,uses,max_uses,expires_at`, {
-      method: 'GET',
-      key: this.env.SUPABASE_SERVICE_ROLE_KEY,
-    });
-    return Array.isArray(rows) ? rows[0] : undefined;
+  async redeemInvite(inviteCodeHash) {
+    try {
+      return await this.rpc('redeem_invite', { invite_code_hash: inviteCodeHash }, this.env.SUPABASE_SERVICE_ROLE_KEY);
+    } catch (error) {
+      if (error instanceof HttpError) throw new HttpError(403, 'INVITE_UNAVAILABLE');
+      throw error;
+    }
   }
 
   async createUser(body) {
@@ -139,15 +140,12 @@ function validateInvite(body) {
   if (body.expiresAt !== undefined && Number.isNaN(Date.parse(body.expiresAt))) throw new HttpError(400, 'INVALID_REQUEST');
 }
 
-async function handleSignup(request, supabase, now) {
+async function handleSignup(request, supabase) {
   const body = await readBody(request);
   validateSignup(body);
-  const invite = await supabase.findInvite(await inviteHash(body.inviteCode));
-  const expired = invite?.expires_at && Date.parse(invite.expires_at) <= now().getTime();
-  if (!invite || invite.uses >= invite.max_uses || expired) throw new HttpError(403, 'INVITE_UNAVAILABLE');
+  await supabase.redeemInvite(await inviteHash(body.inviteCode));
   const user = await supabase.createUser(body);
   await supabase.createProfile(user, signupDisplayName(body));
-  await supabase.rpc('increment_invite_use', { invite_id: invite.id }, supabase.env.SUPABASE_SERVICE_ROLE_KEY);
   return json({ user: { id: user.id, email: user.email } });
 }
 
@@ -247,7 +245,7 @@ export function createWorker(deps = {}) {
       try {
         const url = new URL(request.url);
         const supabase = new SupabaseClient(env, fetchImpl);
-        if (url.pathname === '/api/auth/signup' && request.method === 'POST') return await handleSignup(request, supabase, now);
+        if (url.pathname === '/api/auth/signup' && request.method === 'POST') return await handleSignup(request, supabase);
         if (!url.pathname.startsWith('/api/')) return json({ error: { code: 'NOT_FOUND' } }, 404);
         const session = await requireSession(request, supabase);
         if (url.pathname === '/api/admin/invites' && request.method === 'POST') return await handleInviteCreate(request, supabase, session, randomBytes);

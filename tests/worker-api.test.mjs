@@ -68,13 +68,11 @@ test('unauthenticated progress, reward, and admin calls return 401', async () =>
   }
 });
 
-test('POST /api/auth/signup validates invite code, creates account, increments uses, and rejects unavailable invites', async () => {
-  let invite = { id: 'invite-1', code_hash: '', uses: 0, max_uses: 1, expires_at: '2026-09-05T00:00:00.000Z' };
+test('POST /api/auth/signup redeems invite before account creation and creates profile', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
-    if (call.url.includes('/rest/v1/invites')) return responseJson(invite ? [invite] : []);
+    if (call.url.includes('/rest/v1/rpc/redeem_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
     if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ id: 'created-user', email: call.body.email });
     if (call.url.includes('/rest/v1/profiles')) return responseJson([{ user_id: call.body.user_id, display_name: call.body.display_name, role: 'user' }], 201);
-    if (call.url.includes('/rest/v1/rpc/increment_invite_use')) return responseJson({ id: 'invite-1', uses: 1 });
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
   const api = worker(fetchImpl);
@@ -85,17 +83,33 @@ test('POST /api/auth/signup validates invite code, creates account, increments u
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { user: { id: 'created-user', email: 'new@test.local' } });
-  assert.ok(calls.some(call => call.url.endsWith('/auth/v1/admin/users')));
+  const redeemIndex = calls.findIndex(call => call.url.includes('/rest/v1/rpc/redeem_invite'));
+  const authIndex = calls.findIndex(call => call.url.endsWith('/auth/v1/admin/users'));
+  const profileIndex = calls.findIndex(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
+  assert.ok(redeemIndex > -1);
+  assert.ok(redeemIndex < authIndex);
+  assert.ok(authIndex < profileIndex);
+  assert.equal(calls[redeemIndex].body.invite_code_hash.length, 64);
   const profileInsert = calls.find(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
   assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'Site Captain', role: 'user' });
-  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/increment_invite_use')));
   assert.ok(calls.every(call => !JSON.stringify(call.body ?? {}).includes('JOIN-2026')));
+});
 
-  invite = { ...invite, uses: 1 };
-  assert.equal((await api.fetch(request('/api/auth/signup', { body: { email: 'late@test.local', password: 'secret123', inviteCode: 'JOIN-2026' } }), env)).status, 403);
+test('POST /api/auth/signup rejects unavailable invites before auth user creation', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.includes('/rest/v1/rpc/redeem_invite')) return responseJson({ error: 'unavailable' }, 409);
+    throw new Error(`Auth should not be called after failed redemption: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
 
-  invite = { ...invite, uses: 0, expires_at: '2026-09-03T23:59:00.000Z' };
-  assert.equal((await api.fetch(request('/api/auth/signup', { body: { email: 'old@test.local', password: 'secret123', inviteCode: 'JOIN-2026' } }), env)).status, 403);
+  const response = await api.fetch(request('/api/auth/signup', {
+    body: { email: 'late@test.local', password: 'secret123', displayName: 'Late User', inviteCode: 'JOIN-2026' },
+  }), env);
+
+  assert.equal(response.status, 403);
+  assert.ok(calls.some(call => call.url.includes('/rest/v1/rpc/redeem_invite')));
+  assert.equal(calls.some(call => call.url.endsWith('/auth/v1/admin/users')), false);
+  assert.equal(calls.some(call => call.url.includes('/rest/v1/profiles')), false);
 });
 
 test('POST /api/admin/invites creates a hashed invite code record and returns the plain code once', async () => {
@@ -239,7 +253,7 @@ test('Gemini 429 returns limited-mode response without leaking upstream text', a
 test('Worker RPC names are defined in Supabase migration', async () => {
   const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
 
-  for (const rpcName of ['increment_invite_use', 'check_ai_usage', 'increment_ai_usage']) {
+  for (const rpcName of ['redeem_invite', 'increment_invite_use', 'check_ai_usage', 'increment_ai_usage']) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
   }
