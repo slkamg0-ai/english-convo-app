@@ -6,7 +6,7 @@ import { createApp } from '../server.mjs';
 const scenario = { title:'Cafe', description:'Order coffee', opening:'Hello!', openingKo:'안녕하세요', hint:'A coffee, please.', hintKo:'커피 주세요' };
 const turn = { reply:'Would you like milk?', translation:'우유를 넣을까요?', hint:'Yes, please.', hintKo:'네 주세요', goalReached:false };
 const upstream = (data=turn, status=200, finishReason='STOP') => new Response(JSON.stringify({candidates:[{finishReason,content:{parts:[{text:JSON.stringify(data)}]}}]}),{status});
-async function setup(t, fetchImpl=async()=>upstream(), options={}) {
+async function setup(t, fetchImpl=async()=>upstream(), options={geminiApiKey:'server-key'}) {
   const server=createApp({fetchImpl,...options}); await new Promise(r=>server.listen(0,'127.0.0.1',r));
   t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -26,79 +26,81 @@ async function setup(t, fetchImpl=async()=>upstream(), options={}) {
     request.on('error', reject);
     request.end(payload);
   });
-  const connect=()=>call('/api/settings',{apiKey:'test-key',freeTierConfirmed:true});
   const play=(messages=[],action='start')=>call('/api/roleplay',{action,scenario,level:'beginner',messages});
-  return {server,base,call,connect,play};
+  return {server,base,call,play};
 }
-test('configuration requires explicit consent and does not call upstream',async t=>{
+test('settings mutation endpoints are gone and do not configure AI',async t=>{
  let calls=0;const a=await setup(t,async()=>{calls++;return upstream();});
- assert.equal((await a.play()).status,409);
- assert.equal((await a.call('/api/settings',{apiKey:'test-key'})).status,400);
- assert.equal((await a.connect()).body.configured,true);assert.equal(calls,0);
- assert.equal((await a.call('/api/settings',null,'DELETE')).body.configured,false);
+ assert.equal((await a.call('/api/settings',{apiKey:'browser-key',freeTierConfirmed:true})).status,404);
+ assert.equal((await a.call('/api/settings',null,'DELETE')).status,404);
+ const r=await a.play([], 'start');
+ assert.equal(r.status,200);
+ assert.equal(calls,1);
 });
 test('loopback, origin, content type and static allowlist guards',async t=>{
  const a=await setup(t);
  const hostStatus=await new Promise((resolve,reject)=>http.get(a.base+'/api/status',{headers:{Host:'evil.test'}},r=>{r.resume();resolve(r.statusCode);}).on('error',reject));
  assert.equal(hostStatus,400);
  assert.equal((await a.call('/api/settings',{apiKey:'x',freeTierConfirmed:true},'POST',{Origin:'https://evil.test'})).status,400);
- assert.equal((await a.call('/api/settings',{apiKey:'x',freeTierConfirmed:true},'POST',{'Content-Type':'text/plain'})).status,400);
+ assert.equal((await a.call('/api/roleplay',{apiKey:'x'},'POST',{'Content-Type':'text/plain'})).status,400);
  for(const path of ['/.env','/.git/config','/server.mjs']) assert.equal((await a.call(path)).status,404);
  assert.equal(await new Promise((resolve, reject) => http.get(a.base + '/', response => { response.resume(); resolve(response.statusCode); }).on('error', reject)), 200);
 });
 test('history and fixed generation settings are preserved; early goal is suppressed',async t=>{
- let sent;const a=await setup(t,async(url,init)=>{sent={url,init,body:JSON.parse(init.body)};return upstream({...turn,goalReached:true});});await a.connect();
+ let sent;const a=await setup(t,async(url,init)=>{sent={url,init,body:JSON.parse(init.body)};return upstream({...turn,goalReached:true});});
  const messages=[{role:'model',text:'Hello!'},{role:'user',text:'I want coffee.'}];
  const r=await a.play(messages,'reply');assert.equal(r.status,200);assert.equal(r.body.goalReached,false);
  assert.deepEqual(sent.body.contents.slice(1).map(m=>({role:m.role,text:m.parts[0].text})),messages);
- assert.match(sent.url,/gemini-2\.5-flash-lite:generateContent$/);assert.equal(sent.init.headers['x-goog-api-key'],'test-key');
+ assert.match(sent.url,/gemini-2\.5-flash-lite:generateContent$/);assert.equal(sent.init.headers['x-goog-api-key'],'server-key');
  assert.equal(sent.body.generationConfig.thinkingConfig.thinkingBudget,0);
  assert.equal(sent.body.generationConfig.responseMimeType,'application/json');
 });
 test('schema, finish reason and input validation reject unsafe results',async t=>{
- let result=upstream({reply:'bad'});let calls=0;const a=await setup(t,async()=>{calls++;return result;});await a.connect();
+ let result=upstream({reply:'bad'});let calls=0;const a=await setup(t,async()=>{calls++;return result;});
  assert.equal((await a.play()).status,502);result=upstream(turn,200,'MAX_TOKENS');assert.equal((await a.play()).status,502);
  assert.equal((await a.play([{role:'user',text:'wrong order'}],'reply')).status,400);assert.equal(calls,2);
 });
 test('review corrections quote only learner text',async t=>{
- const a=await setup(t,async()=>upstream({summary:'잘했어요',strength:'주문 성공',corrections:[{original:'I coffee',improved:'I want coffee.',explanation:'동사를 넣어요'},{original:'fabricated',improved:'x',explanation:'x'}],practice:['I want coffee.']}));await a.connect();
+ const a=await setup(t,async()=>upstream({summary:'잘했어요',strength:'주문 성공',corrections:[{original:'I coffee',improved:'I want coffee.',explanation:'동사를 넣어요'},{original:'fabricated',improved:'x',explanation:'x'}],practice:['I want coffee.']}));
  const r=await a.play([{role:'model',text:'Hello'},{role:'user',text:'I coffee'}],'review');assert.equal(r.status,200);assert.equal(r.body.corrections.length,1);
 });
-test('quota latches with no retry until reconnection; errors never reflect upstream',async t=>{
- let calls=0;let status=429;const a=await setup(t,async()=>{calls++;return new Response('SECRET upstream',{status});});await a.connect();
+test('quota latches limited mode without exposing upstream details',async t=>{
+ let calls=0;const a=await setup(t,async()=>{calls++;return new Response('SECRET upstream',{status:429});});
  assert.equal((await a.play()).status,429);assert.equal((await a.play()).status,429);assert.equal(calls,1);
- assert.equal((await a.call('/api/status')).body.quotaBlocked,true);await a.connect();status=403;
- const r=await a.play();assert.equal(r.status,403);assert.equal(r.body.error.code,'INVALID_KEY');assert.ok(!JSON.stringify(r).includes('SECRET'));assert.equal(calls,2);
+ const statusResponse=(await a.call('/api/status')).body;
+ assert.equal(statusResponse.ai.status,'limited');
+ assert.equal(statusResponse.quotaBlocked,true);
+ const r=await a.play();assert.equal(r.status,429);assert.equal(r.body.error.code,'QUOTA_EXCEEDED');assert.ok(!JSON.stringify(r).includes('SECRET'));assert.equal(calls,1);
 });
-test('only one request runs; replaced settings cannot latch quota from stale completion',async t=>{
- let release;const a=await setup(t,()=>new Promise(r=>{release=r;}));await a.connect();const pending=a.play();
- while(!release) await new Promise(r=>setTimeout(r,5));assert.equal((await a.play()).body.error.code,'BUSY');await a.connect();release(new Response('',{status:429}));await pending;
- assert.equal((await a.call('/api/status')).body.quotaBlocked,false);
+test('only one request runs and body API keys are ignored',async t=>{
+ let sentKey;let release;const a=await setup(t,(_url,init)=>{sentKey=init.headers['x-goog-api-key'];return new Promise(r=>{release=r;});});const pending=a.call('/api/roleplay',{action:'start',scenario,level:'beginner',messages:[],apiKey:'browser-key'});
+ while(!release) await new Promise(r=>setTimeout(r,5));assert.equal((await a.play()).body.error.code,'BUSY');release(upstream());await pending;
+ assert.equal(sentKey,'server-key');
 });
 test('upstream timeout aborts and returns friendly timeout',async t=>{
- const a=await setup(t,(_u,{signal})=>new Promise((_r,reject)=>signal.addEventListener('abort',()=>reject(signal.reason))),{timeoutMs:20});await a.connect();assert.equal((await a.play()).status,504);
+ const a=await setup(t,(_u,{signal})=>new Promise((_r,reject)=>signal.addEventListener('abort',()=>reject(signal.reason))),{timeoutMs:20,geminiApiKey:'server-key'});assert.equal((await a.play()).status,504);
 });
 test('missing origin, oversized bodies and turn bounds make zero upstream calls',async t=>{
- let calls=0;const a=await setup(t,async()=>{calls++;return upstream();});await a.connect();
- const absentStatus = await new Promise((resolve, reject) => { const request = http.request(a.base + '/api/settings', { method:'POST', headers:{'Content-Type':'application/json'} }, response => { response.resume(); resolve(response.statusCode); }); request.on('error', reject); request.end(JSON.stringify({apiKey:'x',freeTierConfirmed:true})); }); assert.equal(absentStatus,400);
+ let calls=0;const a=await setup(t,async()=>{calls++;return upstream();});
+ const absentStatus = await new Promise((resolve, reject) => { const request = http.request(a.base + '/api/roleplay', { method:'POST', headers:{'Content-Type':'application/json'} }, response => { response.resume(); resolve(response.statusCode); }); request.on('error', reject); request.end(JSON.stringify({action:'start',scenario,level:'beginner',messages:[]})); }); assert.equal(absentStatus,400);
  assert.equal((await a.call('/api/roleplay',{action:'start',scenario:{...scenario,title:'x'.repeat(33000)},level:'beginner',messages:[]})).status,400);
  assert.equal((await a.play(Array.from({length:14},(_,i)=>({role:i%2?'user':'model',text:'hello'})),'reply')).status,400);assert.equal(calls,0);
 });
 test('six learner replies force completion',async t=>{
- const a=await setup(t);await a.connect();const messages=Array.from({length:12},(_,i)=>({role:i%2?'user':'model',text:'Hello'}));
+ const a=await setup(t);const messages=Array.from({length:12},(_,i)=>({role:i%2?'user':'model',text:'Hello'}));
  assert.equal((await a.play(messages,'reply')).body.goalReached,true);
 });
 test('client disconnect aborts upstream request',async t=>{
  let began;const ready=new Promise(r=>{began=r;});let aborted;
  const stopped=new Promise(r=>{aborted=r;});
- const a=await setup(t,(_url,{signal})=>new Promise((_resolve,reject)=>{signal.addEventListener('abort',()=>{aborted();reject(signal.reason);});began();}));await a.connect();
+ const a=await setup(t,(_url,{signal})=>new Promise((_resolve,reject)=>{signal.addEventListener('abort',()=>{aborted();reject(signal.reason);});began();}));
  const request=http.request(a.base+'/api/roleplay',{method:'POST',headers:{Origin:a.base,'Content-Type':'application/json'}});request.on('error',()=>{});
  request.end(JSON.stringify({action:'start',scenario,level:'beginner',messages:[]}));await ready;request.destroy();
  await Promise.race([stopped,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('disconnect did not abort')),1000);timer.unref();})]);
 });
 
 test('blocked safety ratings are rejected even with STOP',async t=>{
- const a=await setup(t,async()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',safetyRatings:[{blocked:true}],content:{parts:[{text:JSON.stringify(turn)}]}}]})));await a.connect();assert.equal((await a.play()).status,502);
+ const a=await setup(t,async()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',safetyRatings:[{blocked:true}],content:{parts:[{text:JSON.stringify(turn)}]}}]})));assert.equal((await a.play()).status,502);
 });
 
 
@@ -108,7 +110,6 @@ test('start instruction persists at the front of subsequent histories', async t 
     requests.push(JSON.parse(init.body));
     return upstream();
   });
-  await a.connect();
   await a.play();
   const messages = [{role:'model',text:'Hello!'}, {role:'user',text:'Coffee please.'}];
   await a.play(messages, 'reply');
@@ -127,31 +128,37 @@ test('sixth reply prompt closes without inviting another learner turn', async t 
     prompt = JSON.parse(init.body).systemInstruction.parts[0].text;
     return upstream();
   });
-  await a.connect();
   await a.play(Array.from({length:12}, (_,i) => ({role:i%2?'user':'model',text:'Hello'})), 'reply');
   assert.match(prompt, /no further question/i);
   assert.doesNotMatch(prompt, /one closing question/i);
 });
 
-for (const mutation of ['replace', 'delete']) {
-  test(`settings ${mutation} aborts discarded key and rejects stale success`, async t => {
-    let signal;
-    let release;
-    const a = await setup(t, (_url, init) => {
-      signal = init.signal;
-      return new Promise(resolve => { release = resolve; });
-    });
-    await a.connect();
-    const pending = a.play();
-    while (!release) await new Promise(resolve => setTimeout(resolve, 5));
-    if (mutation === 'replace') await a.connect();
-    else await a.call('/api/settings', null, 'DELETE');
-    release(upstream());
-    const result = await pending;
-    assert.equal(signal.aborted, true);
-    assert.notEqual(result.status, 200);
-    const status = (await a.call('/api/status')).body;
-    assert.equal(status.configured, mutation === 'replace');
-    assert.equal(status.quotaBlocked, false);
+test('missing server key reports limited status and roleplay fallback error', async t => {
+  let calls = 0;
+  const a = await setup(t, async () => { calls++; return upstream(); }, { geminiApiKey: '' });
+  const status = (await a.call('/api/status')).body;
+  assert.equal(status.configured, false);
+  assert.equal(status.ai.status, 'limited');
+  assert.equal(status.ai.reason, 'not_configured');
+  const result = await a.play();
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error.code, 'NOT_CONFIGURED');
+  assert.equal(calls, 0);
+});
+
+test('process environment key configures AI when no injected key is provided', async t => {
+  const previous = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'env-key';
+  t.after(() => {
+    if (previous === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previous;
   });
-}
+  let sentKey;
+  const a = await setup(t, async (_url, init) => {
+    sentKey = init.headers['x-goog-api-key'];
+    return upstream();
+  }, {});
+  assert.equal((await a.call('/api/status')).body.ai.status, 'available');
+  assert.equal((await a.play()).status, 200);
+  assert.equal(sentKey, 'env-key');
+});

@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { AppError, MODEL, fail, generation, parseOutput, readJson, validate, object, string } from './gemini-service.mjs';
+import { AppError, MODEL, fail, generation, parseOutput, readJson, validate } from './gemini-service.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const FILES = new Set([
@@ -13,27 +13,30 @@ const FILES = new Set([
 ]);
 const ERRORS = {
   INVALID_REQUEST: [400, '요청 내용을 확인해 주세요.'],
-  NOT_CONFIGURED: [409, '무료 등급을 확인하고 API 키를 연결해 주세요.'],
-  QUOTA_EXCEEDED: [429, '무료 사용 한도에 도달했습니다. 잠시 후 설정에서 다시 연결해 주세요.'],
+  NOT_CONFIGURED: [409, 'AI 연습을 준비하지 못했습니다. 기본 연습으로 계속해 주세요.'],
+  QUOTA_EXCEEDED: [429, 'AI 사용 한도에 도달했습니다. 기본 연습으로 계속해 주세요.'],
   INVALID_KEY: [403, 'API 키와 프로젝트 권한을 확인해 주세요.'],
   MODEL_UNAVAILABLE: [503, '현재 모델을 사용할 수 없습니다. 나중에 다시 시도해 주세요.'],
   UPSTREAM_ERROR: [502, 'AI 응답을 처리하지 못했습니다. 다시 시도해 주세요.'],
   TIMEOUT: [504, 'AI 응답 시간이 초과되었습니다. 다시 시도해 주세요.'],
   BUSY: [409, '이전 AI 응답을 기다려 주세요.'],
 };
-export function createApp({ fetchImpl = globalThis.fetch, timeoutMs = 25000 } = {}) {
-  let config = { key: '', quotaBlocked: false };
+export function createApp({
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 25000,
+  geminiApiKey = process.env.GEMINI_API_KEY,
+} = {}) {
+  const config = { key: geminiApiKey || '', quotaBlocked: false };
   let activeController = null;
   const status = () => ({
     configured: !!config.key,
+    ai: config.key
+      ? { status: config.quotaBlocked ? 'limited' : 'available', reason: config.quotaBlocked ? 'quota_exceeded' : null }
+      : { status: 'limited', reason: 'not_configured' },
     model: MODEL,
     quotaBlocked: config.quotaBlocked,
     maxTurns: 6,
   });
-  const replaceSettings = key => {
-    config = { key, quotaBlocked: false };
-    activeController?.abort();
-  };
 
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -59,19 +62,6 @@ export function createApp({ fetchImpl = globalThis.fetch, timeoutMs = 25000 } = 
           fail('INVALID_REQUEST');
         }
         if (pathname === '/api/status' && req.method === 'GET') return json(200, status());
-        if (pathname === '/api/settings' && req.method === 'POST') {
-          const body = await readJson(req);
-          if (
-            !object(body) || !string(body.apiKey, 256) || body.freeTierConfirmed !== true ||
-            !/^[A-Za-z0-9_-]+$/.test(body.apiKey)
-          ) fail('INVALID_REQUEST');
-          replaceSettings(body.apiKey);
-          return json(200, status());
-        }
-        if (pathname === '/api/settings' && req.method === 'DELETE') {
-          replaceSettings('');
-          return json(200, status());
-        }
         if (pathname === '/api/roleplay' && req.method === 'POST') {
           const data = await readJson(req);
           const turns = validate(data);
