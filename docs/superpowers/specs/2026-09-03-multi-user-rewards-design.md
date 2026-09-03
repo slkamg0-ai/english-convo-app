@@ -187,7 +187,23 @@ Add a small account area with login, signup by invite, logout, and signed-in use
 
 Replace the AI setup card with an AI status card. Add a progress/rewards card that shows total XP, next reward milestone, eligible rewards, and claim status. Add an admin tab or admin-only panel when the signed-in profile has role `admin`.
 
-Preserve the existing learning interactions and visual identity unless the implementation plan identifies a specific design-system update.
+Apply the overall design and layout direction from `index-redesigned.html`. Treat that file as the concrete visual reference for the implementation, while adapting it into the current app's plain HTML/CSS/JavaScript structure.
+
+The reference direction is:
+
+- centered mobile-app frame, optimized first for phone-sized use.
+- light neutral background `#f2f2f3` with slightly darker surfaces around `#e9e9ea`.
+- dark near-black text `#1d1f20`.
+- muted steel-blue accent around `#5980a6`, with darker accent states for active buttons and selected tabs.
+- Barlow for body text and Barlow Condensed for headings where practical; if remote font loading is not available in the free deployment path, use the closest bundled or system fallback while preserving the condensed heading/body contrast.
+- square, blueprint-like cards and buttons with hairline borders, no rounded pill card style, and small registration corner marks on primary framed cards.
+- sticky top app bar with the LAKE title.
+- sticky bottom tab navigation with icon plus short Korean label for Home, Course, Roleplay, Cards, and Progress/Rewards.
+- compact vertical card stack rather than wide desktop dashboard layout.
+- progress and reward sections should reuse the reference's level/progress bar/stat-card rhythm.
+- admin views may become wider on desktop, but should still use the same blueprint table, hairline borders, and restrained accent color.
+
+The existing `DESIGN.md` must be updated before implementation so these tokens and primitives become the new design-system contract. The current navy/white-card design should not remain the target for this feature.
 
 ## Migration Plan
 
