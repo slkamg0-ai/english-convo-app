@@ -51,6 +51,11 @@ function supabaseAuth(call) {
   throw new Error(`Unhandled mock URL: ${call.url}`);
 }
 
+const sessionBody = {
+  access_token: 'issued-token',
+  user: { id: 'created-user', email: 'new@test.local' },
+};
+
 test('unauthenticated progress, reward, and admin calls return 401', async () => {
   const api = worker(async () => responseJson({}));
 
@@ -65,6 +70,7 @@ test('POST /api/auth/signup reserves invite before account creation and creates 
     if (call.url.includes('/rest/v1/rpc/reserve_invite')) return responseJson({ id: 'invite-1', uses: 1, max_uses: 1 });
     if (call.url.endsWith('/auth/v1/admin/users')) return responseJson({ id: 'created-user', email: call.body.email });
     if (call.url.includes('/rest/v1/profiles')) return responseJson([{ user_id: call.body.user_id, display_name: call.body.display_name, role: 'user' }], 201);
+    if (call.url.endsWith('/auth/v1/token?grant_type=password')) return responseJson(sessionBody);
     throw new Error(`Unhandled mock URL: ${call.url}`);
   });
   const api = worker(fetchImpl);
@@ -74,7 +80,10 @@ test('POST /api/auth/signup reserves invite before account creation and creates 
   }), env);
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { user: { id: 'created-user', email: 'new@test.local' } });
+  assert.deepEqual(await response.json(), {
+    user: { id: 'created-user', email: 'new@test.local', displayName: 'Site Captain', role: 'user' },
+    session: { token: 'issued-token' },
+  });
   const redeemIndex = calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_invite'));
   const authIndex = calls.findIndex(call => call.url.endsWith('/auth/v1/admin/users'));
   const profileIndex = calls.findIndex(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
@@ -82,7 +91,29 @@ test('POST /api/auth/signup reserves invite before account creation and creates 
   assert.equal(calls[redeemIndex].body.invite_code_hash.length, 64);
   const profileInsert = calls.find(call => call.url.includes('/rest/v1/profiles') && call.init.method === 'POST');
   assert.deepEqual(profileInsert.body, { user_id: 'created-user', display_name: 'Site Captain', role: 'user' });
+  assert.equal(calls.find(call => call.url.endsWith('/auth/v1/token?grant_type=password')).body.password, 'secret123');
   assert.ok(calls.every(call => !JSON.stringify(call.body ?? {}).includes('JOIN-2026')));
+});
+
+test('Worker login session and logout match browser cloud-client contract', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/token?grant_type=password')) return responseJson({ access_token: 'login-token', user: { id: 'user-1', email: call.body.email } });
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.endsWith('/auth/v1/logout')) return new Response(null, { status: 204 });
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const login = await api.fetch(request('/api/auth/login', { body: { email: 'learner@test.local', password: 'secret123' } }), env);
+  const session = await api.fetch(request('/api/session', { method: 'GET', headers: { Authorization: 'Bearer login-token' } }), env);
+  const logout = await api.fetch(request('/api/auth/logout', { headers: { Authorization: 'Bearer login-token' } }), env);
+
+  assert.equal(login.status, 200);
+  assert.deepEqual(await login.json(), { user: { id: 'user-1', email: 'learner@test.local', displayName: 'Tester', role: 'user' }, session: { token: 'login-token' } });
+  assert.equal(session.status, 200);
+  assert.deepEqual(await session.json(), { user: { id: 'user-1', email: 'login-token@test.local', displayName: 'Tester', role: 'user' }, session: { active: true } });
+  assert.equal(logout.status, 200);
+  assert.ok(calls.some(call => call.url.endsWith('/auth/v1/logout') && call.init.headers.Authorization === 'Bearer login-token'));
 });
 
 test('POST /api/auth/signup rejects unavailable invites before auth user creation', async () => {
@@ -208,6 +239,48 @@ test('authenticated /api/progress calls Supabase RPC record_activity', async () 
   assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.xp_delta, 50);
 });
 
+test('POST /api/progress/activity uses the same record_activity RPC contract', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/record_activity')) return responseJson({ total_xp: 50, current_streak: 1 });
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress/activity', {
+    headers: authHeaders,
+    body: { clientEventId: 'event-1', kind: 'lesson_complete', sourceId: 'lesson-1', xpDelta: 50, occurredAt: '2026-09-04T00:00:00.000Z' },
+  }), env);
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).progress.total_xp, 50);
+  assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.client_event_id, 'event-1');
+});
+
+test('GET /api/rewards returns summary rules and claim eligibility', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/progress_summaries')) return responseJson([{ total_xp: 600, current_streak: 2, completed_count: 7 }]);
+    if (call.url.includes('/rest/v1/reward_rules')) return responseJson([
+      { id: '11111111-1111-4111-8111-111111111111', title: '500 XP Coffee coupon', required_xp: 500, description: 'Entry/manual review', active: true },
+      { id: '22222222-2222-4222-8222-222222222222', title: '1000 XP Coffee coupon', required_xp: 1000, description: 'Manual delivery', active: true },
+    ]);
+    if (call.url.includes('/rest/v1/reward_claims')) return responseJson([{ id: 'claim-1', reward_rule_id: '11111111-1111-4111-8111-111111111111', status: 'pending' }]);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/rewards', { method: 'GET', headers: authHeaders }), env);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.summary, { xp: 600, currentStreak: 2, totalActivities: 7 });
+  assert.deepEqual(body.rules.map(rule => ({ id: rule.id, eligible: rule.eligible, claimed: rule.claimed })), [
+    { id: '11111111-1111-4111-8111-111111111111', eligible: false, claimed: true },
+    { id: '22222222-2222-4222-8222-222222222222', eligible: false, claimed: false },
+  ]);
+});
+
 test('/api/rewards/claim invokes Supabase RPC claim_reward', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
@@ -236,6 +309,25 @@ test('/api/admin/claims rejects non-admin profiles', async () => {
   const response = await api.fetch(request('/api/admin/claims', { headers: authHeaders, body: { claimId: 'claim-1', status: 'approved' } }), env);
 
   assert.equal(response.status, 403);
+});
+
+test('PATCH /api/admin/claims/:id updates claim status for admins', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/reward_claims?id=eq.claim-1')) return responseJson([{ id: 'claim-1', status: call.body.status, admin_note: call.body.admin_note }]);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/admin/claims/claim-1', {
+    method: 'PATCH',
+    headers: adminHeaders,
+    body: { status: 'delivered', adminNote: 'sent' },
+  }), env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { claim: { id: 'claim-1', status: 'delivered', admin_note: 'sent' } });
+  assert.equal(calls.find(call => call.url.includes('/rest/v1/reward_claims?id=eq.claim-1')).init.method, 'PATCH');
 });
 
 test('/api/roleplay reserves daily usage before calling Gemini', async () => {

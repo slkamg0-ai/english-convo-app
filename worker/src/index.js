@@ -1,5 +1,6 @@
 import { generation, parseOutput, validate } from '../../gemini-service.mjs';
 
+// SIZE_OK: Worker route module stays together to share one Supabase adapter and avoid divergent auth/reward logic.
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -75,6 +76,24 @@ class SupabaseClient {
     return { token, user, profile };
   }
 
+  async passwordSession(email, password) {
+    const response = await this.fetchImpl(`${this.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: this.env.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!response.ok) throw new HttpError(response.status, 'UNAUTHORIZED');
+    return response.json();
+  }
+
+  async logout(token) {
+    const response = await this.fetchImpl(`${this.env.SUPABASE_URL}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { apikey: this.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok && response.status !== 204) throw new HttpError(response.status, 'SUPABASE_ERROR');
+  }
+
   async reserveInvite(inviteCodeHash) {
     try {
       return await this.rpc('reserve_invite', { invite_code_hash: inviteCodeHash }, this.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -134,6 +153,15 @@ function requireAdmin(session) {
   if (session.profile.role !== 'admin') throw new HttpError(403, 'FORBIDDEN');
 }
 
+function publicUser(session) {
+  return {
+    id: session.user.id,
+    email: session.user.email,
+    displayName: session.profile.display_name || session.user.email,
+    role: session.profile.role,
+  };
+}
+
 function validateSignup(body) {
   if (!requiredString(body?.email, 254) || !requiredString(body?.password, 128) || !requiredString(body?.inviteCode, 128)) throw new HttpError(400, 'INVALID_REQUEST');
 }
@@ -157,12 +185,27 @@ async function handleSignup(request, supabase) {
   const invite = await supabase.reserveInvite(await inviteHash(body.inviteCode));
   try {
     const user = await supabase.createUser(body);
-    await supabase.createProfile(user, signupDisplayName(body));
-    return json({ user: { id: user.id, email: user.email } });
+    const profileRows = await supabase.createProfile(user, signupDisplayName(body));
+    const passwordSession = await supabase.passwordSession(body.email, body.password);
+    const profile = Array.isArray(profileRows) ? profileRows[0] : profileRows;
+    return json({ user: publicUser({ user, profile }), session: { token: passwordSession.access_token } });
   } catch (error) {
     await supabase.releaseInvite(invite.id);
     throw error;
   }
+}
+
+async function handleLogin(request, supabase) {
+  const body = await readBody(request);
+  if (!requiredString(body?.email, 254) || !requiredString(body?.password, 128)) throw new HttpError(400, 'INVALID_REQUEST');
+  const passwordSession = await supabase.passwordSession(body.email, body.password);
+  const session = await supabase.verify(passwordSession.access_token);
+  return json({ user: publicUser({ user: passwordSession.user, profile: session.profile }), session: { token: passwordSession.access_token } });
+}
+
+async function handleLogout(request, supabase) {
+  await supabase.logout(authToken(request));
+  return json({ ok: true });
 }
 
 async function handleInviteCreate(request, supabase, session, randomBytes) {
@@ -201,6 +244,45 @@ async function handleProgress(request, supabase, session) {
   return json({ progress });
 }
 
+async function handleRewards(supabase, session) {
+  const progressRows = await supabase.request(`/rest/v1/progress_summaries?user_id=eq.${encodeURIComponent(session.user.id)}&select=total_xp,current_streak,completed_count`, {
+    method: 'GET',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  const rules = await supabase.request('/rest/v1/reward_rules?select=id,title,required_xp,description,active&order=required_xp.asc', {
+    method: 'GET',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  const claims = await supabase.request(`/rest/v1/reward_claims?user_id=eq.${encodeURIComponent(session.user.id)}&select=id,reward_rule_id,status,requested_at,reviewed_at,delivered_at,admin_note`, {
+    method: 'GET',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+  const progress = Array.isArray(progressRows) && progressRows[0] ? progressRows[0] : {};
+  const summary = { xp: progress.total_xp || 0, currentStreak: progress.current_streak || 0, totalActivities: progress.completed_count || 0 };
+  const claimed = new Set((Array.isArray(claims) ? claims : []).map(claim => claim.reward_rule_id));
+  return json({
+    summary,
+    rules: (Array.isArray(rules) ? rules : []).map(rule => ({
+      id: rule.id,
+      label: rule.title,
+      description: rule.description || '',
+      requiredXp: rule.required_xp,
+      active: rule.active,
+      eligible: rule.active && summary.xp >= rule.required_xp && !claimed.has(rule.id),
+      claimed: claimed.has(rule.id),
+    })),
+    claims: (Array.isArray(claims) ? claims : []).map(claim => ({
+      id: claim.id,
+      rewardRuleId: claim.reward_rule_id,
+      status: claim.status,
+      requestedAt: claim.requested_at,
+      reviewedAt: claim.reviewed_at,
+      deliveredAt: claim.delivered_at,
+      adminNote: claim.admin_note,
+    })),
+  });
+}
+
 async function handleRewardClaim(request, supabase, session) {
   const body = await readBody(request);
   if (!requiredString(body?.ruleId, 80)) throw new HttpError(400, 'INVALID_REQUEST');
@@ -217,6 +299,19 @@ async function handleClaims(request, supabase, session) {
   const body = await readBody(request);
   if (!requiredString(body?.claimId, 80) || !requiredString(body?.status, 30)) throw new HttpError(400, 'INVALID_REQUEST');
   const rows = await supabase.request(`/rest/v1/reward_claims?id=eq.${encodeURIComponent(body.claimId)}&select=*`, {
+    method: 'PATCH',
+    key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
+    prefer: 'return=representation',
+    body: { status: body.status, admin_note: body.adminNote ?? null, reviewed_at: new Date().toISOString() },
+  });
+  return json({ claim: Array.isArray(rows) ? rows[0] : rows });
+}
+
+async function handleClaimUpdate(request, supabase, session, claimId) {
+  requireAdmin(session);
+  const body = await readBody(request);
+  if (!requiredString(claimId, 80) || !requiredString(body?.status, 30)) throw new HttpError(400, 'INVALID_REQUEST');
+  const rows = await supabase.request(`/rest/v1/reward_claims?id=eq.${encodeURIComponent(claimId)}&select=*`, {
     method: 'PATCH',
     key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
     prefer: 'return=representation',
@@ -256,13 +351,19 @@ export function createWorker(deps = {}) {
         const url = new URL(request.url);
         const supabase = new SupabaseClient(env, fetchImpl);
         if (url.pathname === '/api/auth/signup' && request.method === 'POST') return await handleSignup(request, supabase);
+        if (url.pathname === '/api/auth/login' && request.method === 'POST') return await handleLogin(request, supabase);
+        if (url.pathname === '/api/auth/logout' && request.method === 'POST') return await handleLogout(request, supabase);
         if (!url.pathname.startsWith('/api/')) return json({ error: { code: 'NOT_FOUND' } }, 404);
         const session = await requireSession(request, supabase);
+        if (url.pathname === '/api/session' && request.method === 'GET') return json({ user: publicUser(session), session: { active: true } });
         if (url.pathname === '/api/admin/invites' && request.method === 'POST') return await handleInviteCreate(request, supabase, session, randomBytes);
         if (url.pathname === '/api/admin/invites' && request.method === 'GET') return await handleInviteList(supabase, session);
-        if (url.pathname === '/api/progress' && request.method === 'POST') return await handleProgress(request, supabase, session);
+        if ((url.pathname === '/api/progress' || url.pathname === '/api/progress/activity') && request.method === 'POST') return await handleProgress(request, supabase, session);
+        if (url.pathname === '/api/rewards' && request.method === 'GET') return await handleRewards(supabase, session);
         if (url.pathname === '/api/rewards/claim' && request.method === 'POST') return await handleRewardClaim(request, supabase, session);
         if (url.pathname === '/api/admin/claims' && (request.method === 'GET' || request.method === 'POST')) return await handleClaims(request, supabase, session);
+        const claimMatch = /^\/api\/admin\/claims\/([^/]+)$/.exec(url.pathname);
+        if (claimMatch && request.method === 'PATCH') return await handleClaimUpdate(request, supabase, session, claimMatch[1]);
         if (url.pathname === '/api/roleplay' && request.method === 'POST') return await handleRoleplay(request, env, supabase, session, fetchImpl, now);
         return json({ error: { code: 'NOT_FOUND' } }, 404);
       } catch (error) {
