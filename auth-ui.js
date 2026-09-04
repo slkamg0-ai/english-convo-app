@@ -75,6 +75,6 @@ const AuthUI = (() => {
     });
   }
 
-  return { init: () => { bind(); render(); refresh(); }, onChange: (listener) => listeners.add(listener), user: () => state.user };
+  return { init: () => { bind(); render(); refresh(); }, onChange: (listener) => listeners.add(listener), user: () => state.user, refresh };
 })();
 window.AuthUI = AuthUI;

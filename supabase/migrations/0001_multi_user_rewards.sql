@@ -490,6 +490,84 @@ $$;
 revoke all on function public.reserve_ai_usage(date, integer, integer) from public;
 grant execute on function public.reserve_ai_usage(date, integer, integer) to authenticated;
 
+create or replace function public.import_local_progress(
+  xp integer,
+  current_streak integer,
+  last_activity_date date,
+  completed_count integer
+)
+returns public.progress_summaries
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := (select auth.uid());
+  already_imported timestamptz;
+  existing_summary public.progress_summaries;
+  inserted_summary public.progress_summaries;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required' using errcode = '28000';
+  end if;
+
+  if xp is null or xp < 0 or xp > 1000000 then
+    raise exception 'Invalid XP value' using errcode = '22023';
+  end if;
+
+  if current_streak is null or current_streak < 0 or current_streak > 100000 then
+    raise exception 'Invalid streak value' using errcode = '22023';
+  end if;
+
+  if completed_count is null or completed_count < 0 or completed_count > 1000000 then
+    raise exception 'Invalid completed count' using errcode = '22023';
+  end if;
+
+  select local_progress_imported_at into already_imported
+  from public.profiles
+  where user_id = current_user_id;
+
+  if already_imported is not null then
+    raise exception 'Local progress already imported' using errcode = '23505';
+  end if;
+
+  select * into existing_summary
+  from public.progress_summaries
+  where user_id = current_user_id;
+
+  if existing_summary.user_id is not null then
+    raise exception 'Cloud progress already exists' using errcode = '23505';
+  end if;
+
+  insert into public.progress_summaries (
+    user_id,
+    total_xp,
+    current_streak,
+    last_activity_date,
+    completed_count,
+    updated_at
+  )
+  values (
+    current_user_id,
+    xp,
+    current_streak,
+    last_activity_date,
+    completed_count,
+    now()
+  )
+  returning * into inserted_summary;
+
+  update public.profiles
+  set local_progress_imported_at = now()
+  where user_id = current_user_id;
+
+  return inserted_summary;
+end;
+$$;
+
+revoke all on function public.import_local_progress(integer, integer, date, integer) from public;
+grant execute on function public.import_local_progress(integer, integer, date, integer) to authenticated;
+
 insert into public.reward_rules (id, title, required_xp, description, active)
 values
   ('11111111-1111-4111-8111-111111111111', '500 XP Coffee coupon', 500, 'Entry/manual review', true),

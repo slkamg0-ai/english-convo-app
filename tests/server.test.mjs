@@ -226,3 +226,44 @@ test('local mock progress rewards and admin claim updates are deterministic', as
   assert.equal(updated.body.claim.status, 'approved');
   assert.equal((await a.call('/api/admin/claims', null, 'GET', { Authorization: `Bearer ${admin}` })).body.claims.length, 1);
 });
+
+test('local mock progress import migrates local XP once and then blocks re-import', async t => {
+  // Given
+  const a = await setup(t);
+  const admin = (await a.call('/api/auth/login', { email: 'owner@example.com', password: 'owner-pass' })).body.session.token;
+  const invite = await a.call('/api/admin/invites', { maxUses: 1 }, 'POST', { Authorization: `Bearer ${admin}` });
+  const signup = await a.call('/api/auth/signup', {
+    email: 'migrate@example.com',
+    password: 'pass1234',
+    displayName: 'Migrate User',
+    inviteCode: invite.body.code,
+  });
+  const token = signup.body.session.token;
+  const localProgress = {
+    version: 1,
+    progress: {
+      xp: 240,
+      rewardedIds: ['curriculum:1', 'flashcard:2'],
+      activityDates: ['2026-09-02', '2026-09-03'],
+      currentStreak: 2,
+      longestStreak: 2,
+      lastActivityDate: '2026-09-03',
+      unlockedBadges: ['first_step'],
+      curriculumCount: 1,
+      roleplayCount: 0,
+      flashcardCount: 1,
+    },
+  };
+
+  // When
+  const imported = await a.call('/api/progress/import', localProgress, 'POST', { Authorization: `Bearer ${token}` });
+  const repeated = await a.call('/api/progress/import', localProgress, 'POST', { Authorization: `Bearer ${token}` });
+  const session = await a.call('/api/session', null, 'GET', { Authorization: `Bearer ${token}` });
+
+  // Then
+  assert.equal(imported.status, 200);
+  assert.equal(imported.body.summary.xp, 240);
+  assert.equal(repeated.status, 409);
+  assert.equal(repeated.body.error.code, 'ALREADY_IMPORTED');
+  assert.equal(session.body.user.localProgressImportedAt !== null, true);
+});

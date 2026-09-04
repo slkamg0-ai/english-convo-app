@@ -57,6 +57,15 @@
         <div id="account-signed-in" class="hidden">
           <button id="logout-btn" class="secondary-btn" type="button">로그아웃</button>
         </div>
+        <div id="progress-import-card" class="card hidden">
+          <h3>기존 학습 기록 가져오기</h3>
+          <p class="note">이 브라우저에 저장된 기존 학습 기록을 내 계정으로 가져올 수 있습니다. 한 번만 가져올 수 있어요.</p>
+          <div class="ai-actions">
+            <button id="progress-import-btn" class="primary-btn" type="button">가져오기</button>
+            <button id="progress-import-skip" class="secondary-btn" type="button">건너뛰기</button>
+          </div>
+          <p id="progress-import-status" class="note" role="status"></p>
+        </div>
       </div>
 
       <div class="card">
@@ -340,6 +349,7 @@
   <script src="auth-ui.js"></script>
   <script src="rewards-ui.js"></script>
   <script src="admin-ui.js"></script>
+  <script src="migration-ui.js"></script>
   <script src="ai-roleplay-core.js"></script>
   <script src="ai-roleplay-connection.js"></script>
   <script src="ai-roleplay-speech.js"></script>

@@ -154,6 +154,32 @@ function getProgressSummary() {
   return summarize(loadProgress());
 }
 
+// Builds a secret-free payload for a one-time cloud import, mirroring
+// progress-domain.mjs#buildMigrationPayload for the classic-script browser path.
+function getMigrationPayload() {
+  const progress = loadProgress();
+  return {
+    version: 1,
+    progress: {
+      xp: progress.xp,
+      rewardedIds: progress.rewardedIds,
+      activityDates: progress.activityDates,
+      currentStreak: progress.currentStreak,
+      longestStreak: progress.longestStreak,
+      lastActivityDate: progress.lastActivityDate,
+      unlockedBadges: progress.unlockedBadges,
+      curriculumCount: progress.curriculumCount,
+      roleplayCount: progress.roleplayCount,
+      flashcardCount: progress.flashcardCount,
+    },
+  };
+}
+
+function hasLocalProgressToMigrate() {
+  const progress = loadProgress();
+  return progress.xp > 0 || progress.rewardedIds.length > 0;
+}
+
 // Checks today's streak status without recording new activity — used so the
 // UI can show "스트릭이 끊길 위험" style nudges without side effects.
 function isStreakActiveToday() {

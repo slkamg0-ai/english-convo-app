@@ -12,11 +12,11 @@ function token() {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email, displayName: user.displayName, role: user.role };
+  return { id: user.id, email: user.email, displayName: user.displayName, role: user.role, localProgressImportedAt: user.localProgressImportedAt || null };
 }
 
 export function createLocalMockApi() {
-  const users = new Map([[ADMIN.email, { ...ADMIN, progress: createEmptyProgress() }]]);
+  const users = new Map([[ADMIN.email, { ...ADMIN, progress: createEmptyProgress(), localProgressImportedAt: null }]]);
   const sessions = new Map();
   const invites = [{ id: 'invite-open', code: 'LAKE-LOCAL', maxUses: 20, uses: 0, expiresAt: null, createdBy: ADMIN.id, createdAt: new Date(0).toISOString() }];
   const claims = [];
@@ -67,7 +67,7 @@ export function createLocalMockApi() {
       const invite = invites.find((item) => item.code === code && item.uses < item.maxUses);
       if (!invite || users.has(body.email)) return { status: 403, body: { error: { code: 'INVITE_UNAVAILABLE' } } };
       invite.uses += 1;
-      const user = { id: `user-${users.size}`, email: body.email, password: body.password, displayName: body.displayName || body.email, role: 'user', progress: createEmptyProgress() };
+      const user = { id: `user-${users.size}`, email: body.email, password: body.password, displayName: body.displayName || body.email, role: 'user', progress: createEmptyProgress(), localProgressImportedAt: null };
       users.set(user.email, user);
       return { status: 200, body: { user: publicUser(user), session: issue(user) } };
     }
@@ -94,6 +94,33 @@ export function createLocalMockApi() {
       const result = applyActivity(auth.user.progress, await readJson(req));
       auth.user.progress = result.progress;
       return { status: result.error ? 400 : 200, body: result };
+    }
+    if (pathname === '/api/progress/import' && req.method === 'POST') {
+      const auth = requireUser(req);
+      if (auth.body) return auth;
+      if (auth.user.localProgressImportedAt) return { status: 409, body: { error: { code: 'ALREADY_IMPORTED' } } };
+      const existingSummary = summarizeProgress(auth.user.progress);
+      if (existingSummary.totalActivities > 0) return { status: 409, body: { error: { code: 'ALREADY_HAS_PROGRESS' } } };
+      const body = await readJson(req);
+      const progress = body.progress || {};
+      if (!Number.isInteger(progress.xp) || progress.xp < 0 || !Number.isInteger(progress.currentStreak) || progress.currentStreak < 0) {
+        return { status: 400, body: { error: { code: 'INVALID_REQUEST' } } };
+      }
+      auth.user.progress = {
+        ...createEmptyProgress(),
+        xp: progress.xp,
+        rewardedIds: Array.isArray(progress.rewardedIds) ? progress.rewardedIds : [],
+        activityDates: Array.isArray(progress.activityDates) ? progress.activityDates : [],
+        currentStreak: progress.currentStreak,
+        longestStreak: Number.isInteger(progress.longestStreak) ? progress.longestStreak : progress.currentStreak,
+        lastActivityDate: progress.lastActivityDate || null,
+        unlockedBadges: Array.isArray(progress.unlockedBadges) ? progress.unlockedBadges : [],
+        curriculumCount: Number.isInteger(progress.curriculumCount) ? progress.curriculumCount : 0,
+        roleplayCount: Number.isInteger(progress.roleplayCount) ? progress.roleplayCount : 0,
+        flashcardCount: Number.isInteger(progress.flashcardCount) ? progress.flashcardCount : 0,
+      };
+      auth.user.localProgressImportedAt = new Date().toISOString();
+      return { status: 200, body: { summary: summarizeProgress(auth.user.progress) } };
     }
     if (pathname === '/api/rewards/claim' && req.method === 'POST') {
       const auth = requireUser(req);

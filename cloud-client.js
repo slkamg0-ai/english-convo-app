@@ -38,6 +38,7 @@ const CloudClient = (() => {
     },
     progress: () => request("/api/progress"),
     recordActivity: (body) => request("/api/progress/activity", { method: "POST", body }),
+    importLocalProgress: (body) => request("/api/progress/import", { method: "POST", body }),
     rewards: () => request("/api/rewards"),
     claimReward: (ruleId) => request("/api/rewards/claim", { method: "POST", body: { ruleId } }),
     createInvite: (body) => request("/api/admin/invites", { method: "POST", body }),

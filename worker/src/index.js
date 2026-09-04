@@ -67,7 +67,7 @@ class SupabaseClient {
     });
     if (!userResponse.ok) throw new HttpError(401, 'UNAUTHORIZED');
     const user = await userResponse.json();
-    const profileRows = await this.request(`/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=user_id,role,display_name`, {
+    const profileRows = await this.request(`/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}&select=user_id,role,display_name,local_progress_imported_at`, {
       method: 'GET',
       key: this.env.SUPABASE_SERVICE_ROLE_KEY,
     });
@@ -159,6 +159,7 @@ function publicUser(session) {
     email: session.user.email,
     displayName: session.profile.display_name || session.user.email,
     role: session.profile.role,
+    localProgressImportedAt: session.profile.local_progress_imported_at || null,
   };
 }
 
@@ -253,6 +254,29 @@ async function handleProgress(request, supabase, session) {
     metadata: body.metadata ?? {},
   }, session.token);
   return json({ progress });
+}
+
+function validateImportProgress(progress) {
+  if (!progress || typeof progress !== 'object') throw new HttpError(400, 'INVALID_REQUEST');
+  if (!Number.isInteger(progress.xp) || progress.xp < 0) throw new HttpError(400, 'INVALID_REQUEST');
+  if (!Number.isInteger(progress.currentStreak) || progress.currentStreak < 0) throw new HttpError(400, 'INVALID_REQUEST');
+  if (progress.lastActivityDate !== null && progress.lastActivityDate !== undefined && !requiredString(progress.lastActivityDate, 10)) {
+    throw new HttpError(400, 'INVALID_REQUEST');
+  }
+}
+
+async function handleProgressImport(request, supabase, session) {
+  const body = await readBody(request);
+  const progress = body?.progress;
+  validateImportProgress(progress);
+  const completedCount = Array.isArray(progress.rewardedIds) ? progress.rewardedIds.length : 0;
+  const summary = await supabase.rpc('import_local_progress', {
+    xp: progress.xp,
+    current_streak: progress.currentStreak,
+    last_activity_date: progress.lastActivityDate ?? null,
+    completed_count: completedCount,
+  }, session.token);
+  return json({ summary: progressSummary([summary]) });
 }
 
 function progressSummary(progressRows) {
@@ -397,6 +421,7 @@ export function createWorker(deps = {}) {
         if (url.pathname === '/api/admin/invites' && request.method === 'GET') return await handleInviteList(supabase, session);
         if (url.pathname === '/api/progress' && request.method === 'GET') return await handleProgressSummary(supabase, session);
         if ((url.pathname === '/api/progress' || url.pathname === '/api/progress/activity') && request.method === 'POST') return await handleProgress(request, supabase, session);
+        if (url.pathname === '/api/progress/import' && request.method === 'POST') return await handleProgressImport(request, supabase, session);
         if (url.pathname === '/api/rewards' && request.method === 'GET') return await handleRewards(supabase, session);
         if (url.pathname === '/api/rewards/claim' && request.method === 'POST') return await handleRewardClaim(request, supabase, session);
         if (url.pathname === '/api/admin/claims' && (request.method === 'GET' || request.method === 'POST')) return await handleClaims(request, supabase, session);

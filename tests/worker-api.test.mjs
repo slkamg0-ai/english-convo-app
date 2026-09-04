@@ -81,7 +81,7 @@ test('POST /api/auth/signup reserves invite before account creation and creates 
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
-    user: { id: 'created-user', email: 'new@test.local', displayName: 'Site Captain', role: 'user' },
+    user: { id: 'created-user', email: 'new@test.local', displayName: 'Site Captain', role: 'user', localProgressImportedAt: null },
     session: { token: 'issued-token' },
   });
   const redeemIndex = calls.findIndex(call => call.url.includes('/rest/v1/rpc/reserve_invite'));
@@ -109,9 +109,9 @@ test('Worker login session and logout match browser cloud-client contract', asyn
   const logout = await api.fetch(request('/api/auth/logout', { headers: { Authorization: 'Bearer login-token' } }), env);
 
   assert.equal(login.status, 200);
-  assert.deepEqual(await login.json(), { user: { id: 'user-1', email: 'learner@test.local', displayName: 'Tester', role: 'user' }, session: { token: 'login-token' } });
+  assert.deepEqual(await login.json(), { user: { id: 'user-1', email: 'learner@test.local', displayName: 'Tester', role: 'user', localProgressImportedAt: null }, session: { token: 'login-token' } });
   assert.equal(session.status, 200);
-  assert.deepEqual(await session.json(), { user: { id: 'user-1', email: 'login-token@test.local', displayName: 'Tester', role: 'user' }, session: { active: true } });
+  assert.deepEqual(await session.json(), { user: { id: 'user-1', email: 'login-token@test.local', displayName: 'Tester', role: 'user', localProgressImportedAt: null }, session: { active: true } });
   assert.equal(logout.status, 200);
   assert.ok(calls.some(call => call.url.endsWith('/auth/v1/logout') && call.init.headers.Authorization === 'Bearer login-token'));
 });
@@ -444,10 +444,45 @@ test('Gemini 429 returns limited-mode response without leaking upstream text', a
   assert.doesNotMatch(JSON.stringify(body), /SECRET/);
 });
 
+test('POST /api/progress/import invokes Supabase RPC import_local_progress', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/import_local_progress')) return responseJson({ total_xp: 240, current_streak: 2, completed_count: 2 });
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress/import', {
+    headers: authHeaders,
+    body: { progress: { xp: 240, rewardedIds: ['a', 'b'], currentStreak: 2, lastActivityDate: '2026-09-03' } },
+  }), env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { summary: { xp: 240, currentStreak: 2, totalActivities: 2 } });
+  const rpcCall = calls.find(call => call.url.includes('/rest/v1/rpc/import_local_progress'));
+  assert.deepEqual(rpcCall.body, { xp: 240, current_streak: 2, last_activity_date: '2026-09-03', completed_count: 2 });
+});
+
+test('POST /api/progress/import rejects an invalid payload without calling Supabase', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress/import', {
+    headers: authHeaders,
+    body: { progress: { xp: -5, currentStreak: 2 } },
+  }), env);
+
+  assert.equal(response.status, 400);
+  assert.equal(calls.some(call => call.url.includes('/rest/v1/rpc/import_local_progress')), false);
+});
+
 test('Worker RPC names are defined in Supabase migration', async () => {
   const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
 
-  for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'reserve_ai_usage']) {
+  for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'reserve_ai_usage', 'import_local_progress']) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
   }

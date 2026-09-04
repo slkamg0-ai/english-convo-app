@@ -213,7 +213,15 @@ function renderScenarioList() {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "scenario-item";
-    item.innerHTML = `<div><h3>${scenario.title}</h3><p>${scenario.description}</p></div><span>시작</span>`;
+    const content = document.createElement("div");
+    const title = document.createElement("h3");
+    const description = document.createElement("p");
+    const action = document.createElement("span");
+    title.textContent = scenario.title;
+    description.textContent = scenario.description;
+    action.textContent = "시작";
+    content.append(title, description);
+    item.append(content, action);
     item.addEventListener("click", () => startScenario(key));
     scenarioListEl.appendChild(item);
   });
@@ -504,34 +512,52 @@ function renderCurriculumDay() {
     const done = completedScenarioIds.has(scenario.id);
     const card = document.createElement("div");
     card.className = `curriculum-card${done ? " completed" : ""}`;
-    card.innerHTML = `
-      <div class="curriculum-card-header">
-        <span>${scenario.categoryTitle}</span>
-        <span>${done ? "완료" : ""}</span>
-      </div>
-      <p class="curriculum-card-npc">${scenario.npc}</p>
-      <p class="curriculum-card-npc-ko hidden">${scenario.npcKo}</p>
-      <div class="curriculum-card-btn-row">
-        <button class="icon-btn curr-speak-btn" type="button">들어보기</button>
-        <button class="icon-btn curr-translate-btn" type="button">해석 보기</button>
-      </div>
-      <div class="curriculum-card-row">
-        <input type="text" class="curr-answer-input" aria-label="커리큘럼 영어 답변 입력" placeholder="영어로 답해보세요" />
-        <button class="secondary-btn curr-check-btn" type="button">확인</button>
-      </div>
-      <div class="curriculum-card-feedback hidden"></div>
-      <p class="curriculum-card-answer hidden">모범 답안: "${scenario.answer}"</p>
-      <p class="curriculum-card-answer-ko hidden">해석: "${scenario.answerKo}"</p>
-    `;
+    const header = document.createElement("div");
+    const category = document.createElement("span");
+    const doneLabel = document.createElement("span");
+    const npcEl = document.createElement("p");
+    const npcKoEl = document.createElement("p");
+    const buttonRow = document.createElement("div");
+    const speakBtn = document.createElement("button");
+    const translateBtn = document.createElement("button");
+    const answerRow = document.createElement("div");
+    const input = document.createElement("input");
+    const checkBtn = document.createElement("button");
+    const feedbackEl = document.createElement("div");
+    const answerEl = document.createElement("p");
+    const answerKoEl = document.createElement("p");
 
-    const speakBtn = card.querySelector(".curr-speak-btn");
-    const translateBtn = card.querySelector(".curr-translate-btn");
-    const npcKoEl = card.querySelector(".curriculum-card-npc-ko");
-    const input = card.querySelector(".curr-answer-input");
-    const checkBtn = card.querySelector(".curr-check-btn");
-    const feedbackEl = card.querySelector(".curriculum-card-feedback");
-    const answerEl = card.querySelector(".curriculum-card-answer");
-    const answerKoEl = card.querySelector(".curriculum-card-answer-ko");
+    header.className = "curriculum-card-header";
+    category.textContent = scenario.categoryTitle;
+    doneLabel.textContent = done ? "완료" : "";
+    header.append(category, doneLabel);
+    npcEl.className = "curriculum-card-npc";
+    npcEl.textContent = scenario.npc;
+    npcKoEl.className = "curriculum-card-npc-ko hidden";
+    npcKoEl.textContent = scenario.npcKo;
+    buttonRow.className = "curriculum-card-btn-row";
+    speakBtn.className = "icon-btn curr-speak-btn";
+    speakBtn.type = "button";
+    speakBtn.textContent = "들어보기";
+    translateBtn.className = "icon-btn curr-translate-btn";
+    translateBtn.type = "button";
+    translateBtn.textContent = "해석 보기";
+    buttonRow.append(speakBtn, translateBtn);
+    answerRow.className = "curriculum-card-row";
+    input.type = "text";
+    input.className = "curr-answer-input";
+    input.setAttribute("aria-label", "커리큘럼 영어 답변 입력");
+    input.placeholder = "영어로 답해보세요";
+    checkBtn.className = "secondary-btn curr-check-btn";
+    checkBtn.type = "button";
+    checkBtn.textContent = "확인";
+    answerRow.append(input, checkBtn);
+    feedbackEl.className = "curriculum-card-feedback hidden";
+    answerEl.className = "curriculum-card-answer hidden";
+    answerEl.textContent = `모범 답안: "${scenario.answer}"`;
+    answerKoEl.className = "curriculum-card-answer-ko hidden";
+    answerKoEl.textContent = `해석: "${scenario.answerKo}"`;
+    card.append(header, npcEl, npcKoEl, buttonRow, answerRow, feedbackEl, answerEl, answerKoEl);
 
     speakBtn.addEventListener("click", () => speak(scenario.npc));
     translateBtn.addEventListener("click", () => {
@@ -611,11 +637,20 @@ function handleActivityResult(result) {
 function renderHeaderStats() {
   const summary = getProgressSummary();
   const headerStatsEl = document.getElementById("header-stats");
-  headerStatsEl.innerHTML = `
-    <span>Lv.${summary.level} <strong>${summary.levelTitle}</strong></span>
-    <span><strong>${summary.currentStreak}</strong>일 연속</span>
-    <span><strong>${summary.xp}</strong> XP</span>
-  `;
+  const level = document.createElement("span");
+  const levelTitle = document.createElement("strong");
+  const streak = document.createElement("span");
+  const streakValue = document.createElement("strong");
+  const xp = document.createElement("span");
+  const xpValue = document.createElement("strong");
+  level.append(`Lv.${summary.level} `);
+  levelTitle.textContent = summary.levelTitle;
+  level.append(levelTitle);
+  streakValue.textContent = summary.currentStreak;
+  streak.append(streakValue, "일 연속");
+  xpValue.textContent = summary.xp;
+  xp.append(xpValue, " XP");
+  headerStatsEl.replaceChildren(level, streak, xp);
 }
 
 function renderProgressTab() {
@@ -647,7 +682,7 @@ function renderProgressTab() {
     const unlocked = summary.unlockedBadges.includes(badge.id);
     const el = document.createElement("div");
     el.className = `badge-item${unlocked ? " unlocked" : ""}`;
-    el.innerHTML = `<span class="badge-icon">${badge.icon}</span>${badge.label}`;
+    el.textContent = badge.label;
     el.title = badge.desc;
     badgeGridEl.appendChild(el);
   });
@@ -657,3 +692,4 @@ renderHeaderStats();
 window.AuthUI?.init();
 window.RewardsUI?.init();
 window.AdminUI?.init();
+window.MigrationUI?.init();

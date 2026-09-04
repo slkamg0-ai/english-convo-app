@@ -10,7 +10,7 @@ const FILES = new Set([
   'index.html', 'style.css', 'app.js', 'scenarios.js', 'roleplay-data.js',
   'curriculum-data.js', 'flashcards-data.js', 'progress.js', 'ai-roleplay.js',
   'ai-roleplay-core.js', 'ai-roleplay-connection.js', 'ai-roleplay-speech.js',
-  'ai-roleplay-reviews.js', 'cloud-client.js', 'auth-ui.js', 'rewards-ui.js', 'admin-ui.js',
+  'ai-roleplay-reviews.js', 'cloud-client.js', 'auth-ui.js', 'rewards-ui.js', 'admin-ui.js', 'migration-ui.js',
 ]);
 const ERRORS = {
   INVALID_REQUEST: [400, '요청 내용을 확인해 주세요.'],
