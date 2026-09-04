@@ -19,12 +19,21 @@ const AdminUI = (() => {
     }));
   }
 
+  function claimSummary(claim) {
+    const body = document.createElement("div");
+    const learner = document.createElement("strong");
+    const reward = document.createElement("p");
+    learner.textContent = claim.displayName || claim.userEmail || "학습자";
+    reward.textContent = `${claim.rewardLabel || claim.rewardRuleId || "리워드"} · ${claim.status}`;
+    body.append(learner, reward);
+    return body;
+  }
+
   function renderClaims(claims) {
     el("admin-claim-list").replaceChildren(...claims.map((claim) => {
       const row = document.createElement("div");
       row.className = "admin-claim-row";
-      row.innerHTML = `<div><strong>${claim.displayName || claim.userEmail}</strong><p>${claim.rewardLabel || claim.rewardRuleId} · ${claim.status}</p></div>`;
-      row.append(option("approved", claim), option("delivered", claim), option("rejected", claim));
+      row.append(claimSummary(claim), option("approved", claim), option("delivered", claim), option("rejected", claim));
       return row;
     }));
   }
