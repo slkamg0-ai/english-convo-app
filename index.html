@@ -344,6 +344,14 @@
   <script src="flashcards-data.js"></script>
   <script src="curriculum-data.js"></script>
   <script src="roleplay-data.js"></script>
+  <script>
+    // Static hosts (e.g. GitHub Pages) serve only files, so cloud-client.js
+    // must call the deployed Worker instead of a same-origin /api/* path.
+    // Local dev (server.mjs) hosts the API itself, so it stays same-origin.
+    window.LAKE_API_BASE = /^(127\.0\.0\.1|localhost|\[::1\])$/.test(location.hostname)
+      ? ""
+      : "https://lake-english-convo-api.slkamg0.workers.dev";
+  </script>
   <script src="cloud-client.js"></script>
   <script src="progress.js"></script>
   <script src="auth-ui.js"></script>

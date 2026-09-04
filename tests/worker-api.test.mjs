@@ -56,6 +56,34 @@ const sessionBody = {
   user: { id: 'created-user', email: 'new@test.local' },
 };
 
+test('OPTIONS preflight for any /api/* route returns CORS headers without touching Supabase', async () => {
+  const api = worker(async () => { throw new Error('fetchImpl should not be called for a preflight request'); });
+
+  const response = await api.fetch(request('/api/auth/login', { method: 'OPTIONS' }), env);
+
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  assert.match(response.headers.get('access-control-allow-methods') || '', /POST/);
+  assert.match(response.headers.get('access-control-allow-headers') || '', /authorization/i);
+});
+
+test('JSON responses (success and error) carry CORS headers for a static frontend origin', async () => {
+  const api = worker(async () => responseJson({}));
+
+  const unauthorized = await api.fetch(request('/api/progress', { body: {} }), env);
+  assert.equal(unauthorized.headers.get('access-control-allow-origin'), '*');
+
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/token?grant_type=password')) return responseJson({ access_token: 'login-token', user: { id: 'user-1', email: call.body.email } });
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const loginApi = worker(fetchImpl);
+  const login = await loginApi.fetch(request('/api/auth/login', { body: { email: 'learner@test.local', password: 'secret123' } }), env);
+  assert.equal(login.status, 200);
+  assert.equal(login.headers.get('access-control-allow-origin'), '*');
+});
+
 test('unauthenticated progress, reward, and admin calls return 401', async () => {
   const api = worker(async () => responseJson({}));
 

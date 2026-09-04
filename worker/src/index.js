@@ -1,9 +1,15 @@
 import { generation, parseOutput, validate } from '../../gemini-service.mjs';
 
 // SIZE_OK: Worker route module stays together to share one Supabase adapter and avoid divergent auth/reward logic.
-const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// Bearer-token auth (no cookies), so a wildcard origin cannot be used to steal a session via CSRF.
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type',
+};
+const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', ...CORS_HEADERS };
 
 class HttpError extends Error {
   constructor(status, code, details) {
@@ -438,6 +444,7 @@ export function createWorker(deps = {}) {
   const now = deps.now ?? (() => new Date());
   return {
     async fetch(request, env) {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
       try {
         const url = new URL(request.url);
         const supabase = new SupabaseClient(env, fetchImpl);

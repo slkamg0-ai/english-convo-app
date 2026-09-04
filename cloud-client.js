@@ -18,8 +18,10 @@ const CloudClient = (() => {
     NETWORK: "요청을 처리하지 못했습니다.",
   };
 
+  const API_BASE = window.LAKE_API_BASE || "";
+
   async function request(path, { method = "GET", body } = {}) {
-    const response = await fetch(path, {
+    const response = await fetch(API_BASE + path, {
       method,
       headers: {
         ...(body ? { "Content-Type": "application/json" } : {}),
