@@ -516,7 +516,7 @@ function renderCurriculumDay() {
         <button class="icon-btn curr-translate-btn" type="button">해석 보기</button>
       </div>
       <div class="curriculum-card-row">
-        <input type="text" class="curr-answer-input" placeholder="영어로 답해보세요" />
+        <input type="text" class="curr-answer-input" aria-label="커리큘럼 영어 답변 입력" placeholder="영어로 답해보세요" />
         <button class="secondary-btn curr-check-btn" type="button">확인</button>
       </div>
       <div class="curriculum-card-feedback hidden"></div>
