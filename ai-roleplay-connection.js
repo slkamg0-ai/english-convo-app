@@ -1,13 +1,12 @@
 const AIRoleplayConnection = (() => {
-  async function request(path, { method = 'GET', body, signal } = {}, localAllowed) {
-    if (!localAllowed) throw Object.assign(new Error('AI 대화는 Start-English.cmd로 실행한 로컬 앱에서 연결할 수 있습니다. 기본 상황극은 지금 사용할 수 있습니다.'), { code: 'LOCAL_SERVER' });
+  async function request(path, { method = 'GET', body, signal } = {}) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
     const timeout = setTimeout(abort, 30000);
     try {
-      const response = await fetch(path, {
+      const response = await fetch((window.LAKE_API_BASE || '') + path, {
         method,
         headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(window.CloudClient?.authHeader() || {}) },
         body: body ? JSON.stringify(body) : undefined,
@@ -15,7 +14,7 @@ const AIRoleplayConnection = (() => {
         cache: 'no-store',
       });
       if (!(response.headers.get('content-type') || '').includes('application/json')) {
-        throw new Error('로컬 서버가 응답하지 않습니다. Start-English.cmd를 실행해주세요.');
+        throw new Error('서버가 응답하지 않습니다. 잠시 후 다시 시도해주세요.');
       }
       const value = await response.json();
       if (!response.ok) {

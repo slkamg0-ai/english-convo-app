@@ -1,8 +1,7 @@
 (() => {
   const el = id => document.getElementById(id);
   const panel = el('ai-play');
-  const apiOrigin = location.protocol !== 'file:' && ['127.0.0.1', 'localhost'].includes(location.hostname);
-  const api = (path, options) => AIRoleplayConnection.request(path, options, apiOrigin);
+  const api = (path, options) => AIRoleplayConnection.request(path, options);
   let session;
   const speech = AIRoleplaySpeech.create({ el, getSession: () => session, submit: value => submitAnswer(value) });
   const reviews = AIRoleplayReviews.create({ el, textNode, say: (...args) => speech.say(...args), restart: (...args) => start(...args), reward: sessionId => { try { handleActivityResult(recordActivity(`ai-roleplay:${sessionId}`, 8, 'roleplay')); } catch { el('ai-save-status').textContent += ' 학습 성과를 저장하지 못했습니다.'; } } });
@@ -117,7 +116,7 @@
     speech.stop();
     if (!connection.configured || connection.quotaBlocked || !serverAvailable) {
       renderConnection();
-      el('ai-connection-status').textContent = !serverAvailable ? 'Start-English.cmd를 실행한 뒤 로컬 주소에서 연결해주세요.' : connection.quotaBlocked ? '한도가 회복된 뒤 다시 시도해주세요. 기본 상황극은 계속 사용할 수 있습니다.' : '운영자 Gemini 연결이 아직 준비되지 않았습니다. 기본 상황극을 선택하세요.';
+      el('ai-connection-status').textContent = !serverAvailable ? '서버 연결을 확인하지 못했습니다. 인터넷 연결을 확인해주세요.' : connection.quotaBlocked ? '한도가 회복된 뒤 다시 시도해주세요. 기본 상황극은 계속 사용할 수 있습니다.' : '운영자 Gemini 연결이 아직 준비되지 않았습니다. 기본 상황극을 선택하세요.';
       return;
     }
     selectedKey = key;

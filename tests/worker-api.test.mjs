@@ -84,6 +84,18 @@ test('JSON responses (success and error) carry CORS headers for a static fronten
   assert.equal(login.headers.get('access-control-allow-origin'), '*');
 });
 
+test('GET /api/status reports AI availability without requiring a session', async () => {
+  const api = worker(async () => { throw new Error('fetchImpl should not be called for a public status check'); });
+
+  const configured = await api.fetch(request('/api/status', { method: 'GET' }), { ...env, GEMINI_API_KEY: 'gemini-key' });
+  assert.equal(configured.status, 200);
+  assert.deepEqual(await configured.json(), { configured: true, ai: { status: 'available', reason: null }, quotaBlocked: false, maxTurns: 6 });
+
+  const unconfigured = await api.fetch(request('/api/status', { method: 'GET' }), { ...env, GEMINI_API_KEY: '' });
+  assert.equal(unconfigured.status, 200);
+  assert.deepEqual(await unconfigured.json(), { configured: false, ai: { status: 'limited', reason: 'not_configured' }, quotaBlocked: false, maxTurns: 6 });
+});
+
 test('unauthenticated progress, reward, and admin calls return 401', async () => {
   const api = worker(async () => responseJson({}));
 

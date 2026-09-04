@@ -275,6 +275,16 @@ function translateRpcConflict(error, rules) {
   throw error;
 }
 
+function handleStatus(env) {
+  const configured = Boolean(env.GEMINI_API_KEY);
+  return json({
+    configured,
+    ai: configured ? { status: 'available', reason: null } : { status: 'limited', reason: 'not_configured' },
+    quotaBlocked: false,
+    maxTurns: 6,
+  });
+}
+
 function validateImportProgress(progress) {
   if (!progress || typeof progress !== 'object') throw new HttpError(400, 'INVALID_REQUEST');
   if (!Number.isInteger(progress.xp) || progress.xp < 0) throw new HttpError(400, 'INVALID_REQUEST');
@@ -451,6 +461,7 @@ export function createWorker(deps = {}) {
         if (url.pathname === '/api/auth/signup' && request.method === 'POST') return await handleSignup(request, supabase);
         if (url.pathname === '/api/auth/login' && request.method === 'POST') return await handleLogin(request, supabase);
         if (url.pathname === '/api/auth/logout' && request.method === 'POST') return await handleLogout(request, supabase);
+        if (url.pathname === '/api/status' && request.method === 'GET') return handleStatus(env);
         if (!url.pathname.startsWith('/api/')) return json({ error: { code: 'NOT_FOUND' } }, 404);
         const session = await requireSession(request, supabase);
         if (url.pathname === '/api/session' && request.method === 'GET') return json({ user: publicUser(session), session: { active: true } });
