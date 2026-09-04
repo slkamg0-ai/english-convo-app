@@ -1,0 +1,12 @@
+{
+  "name": "LAKE 영어회화연습",
+  "short_name": "LAKE 영어",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f2f2f3",
+  "theme_color": "#a7e8d0",
+  "icons": [
+    { "src": "icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}
