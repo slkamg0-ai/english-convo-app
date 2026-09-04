@@ -339,6 +339,41 @@ test('/api/admin/claims rejects non-admin profiles', async () => {
   assert.equal(response.status, 403);
 });
 
+test('GET /api/admin/claims returns browser admin claim shape', async () => {
+  const { fetchImpl, calls } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/reward_claims')) return responseJson([{
+      id: 'claim-1',
+      user_id: 'user-1',
+      reward_rule_id: 'reward-500',
+      status: 'pending',
+      requested_at: '2026-09-04T00:00:00.000Z',
+      reviewed_at: null,
+      delivered_at: null,
+      profiles: { display_name: 'Site Captain', email: 'learner@test.local' },
+      reward_rules: { title: '500 XP Coffee coupon' },
+    }]);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/admin/claims', { method: 'GET', headers: adminHeaders }), env);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { claims: [{
+    id: 'claim-1',
+    userId: 'user-1',
+    displayName: 'Site Captain',
+    userEmail: 'learner@test.local',
+    rewardRuleId: 'reward-500',
+    rewardLabel: '500 XP Coffee coupon',
+    status: 'pending',
+    createdAt: '2026-09-04T00:00:00.000Z',
+    decidedAt: null,
+  }] });
+  assert.match(calls.find(call => call.url.includes('/rest/v1/reward_claims')).url, /profiles\(display_name,email\).*reward_rules\(title\)/);
+});
+
 test('PATCH /api/admin/claims/:id updates claim status for admins', async () => {
   const { fetchImpl, calls } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);

@@ -302,11 +302,25 @@ async function handleRewardClaim(request, supabase, session) {
   return json({ claim });
 }
 
+function adminClaim(claim) {
+  return {
+    id: claim.id,
+    userId: claim.user_id,
+    displayName: claim.profiles?.display_name || '',
+    userEmail: claim.profiles?.email || '',
+    rewardRuleId: claim.reward_rule_id,
+    rewardLabel: claim.reward_rules?.title || claim.reward_rule_id,
+    status: claim.status,
+    createdAt: claim.requested_at,
+    decidedAt: claim.reviewed_at || claim.delivered_at || null,
+  };
+}
+
 async function handleClaims(request, supabase, session) {
   requireAdmin(session);
   if (request.method === 'GET') {
-    const claims = await supabase.request('/rest/v1/reward_claims?select=*', { method: 'GET', key: supabase.env.SUPABASE_SERVICE_ROLE_KEY });
-    return json({ claims });
+    const claims = await supabase.request('/rest/v1/reward_claims?select=id,user_id,reward_rule_id,status,requested_at,reviewed_at,delivered_at,profiles(display_name,email),reward_rules(title)&order=requested_at.desc', { method: 'GET', key: supabase.env.SUPABASE_SERVICE_ROLE_KEY });
+    return json({ claims: (Array.isArray(claims) ? claims : []).map(adminClaim) });
   }
   const body = await readBody(request);
   if (!requiredString(body?.claimId, 80) || !requiredString(body?.status, 30)) throw new HttpError(400, 'INVALID_REQUEST');
