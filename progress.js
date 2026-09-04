@@ -10,19 +10,34 @@ const LEVEL_TITLES = [
 ];
 
 const BADGE_DEFS = [
-  { id: "first_step", label: "첫 걸음", icon: "🌱", desc: "학습을 처음 시작했어요", check: (p) => p.totalActivities >= 1 },
-  { id: "streak_3", label: "3일 연속", icon: "🔥", desc: "3일 연속 학습", check: (p) => p.longestStreak >= 3 },
-  { id: "streak_7", label: "일주일 연속", icon: "🔥", desc: "7일 연속 학습", check: (p) => p.longestStreak >= 7 },
-  { id: "streak_30", label: "한 달 연속", icon: "🏆", desc: "30일 연속 학습", check: (p) => p.longestStreak >= 30 },
-  { id: "curriculum_10", label: "코스 입문", icon: "📘", desc: "커리큘럼 10개 완료", check: (p) => p.curriculumCount >= 10 },
-  { id: "curriculum_50", label: "코스 절반", icon: "📗", desc: "커리큘럼 50개 완료", check: (p) => p.curriculumCount >= 50 },
-  { id: "curriculum_200", label: "코스 마스터", icon: "📕", desc: "커리큘럼 200개 완료", check: (p) => p.curriculumCount >= 200 },
-  { id: "roleplay_10", label: "상황극 입문", icon: "🎭", desc: "상황극 10개 완료", check: (p) => p.roleplayCount >= 10 },
-  { id: "roleplay_50", label: "상황극 숙련", icon: "🎬", desc: "상황극 50개 완료", check: (p) => p.roleplayCount >= 50 },
-  { id: "flashcard_10", label: "단어 수집가", icon: "🃏", desc: "단어 카드 10개 암기", check: (p) => p.flashcardCount >= 10 },
-  { id: "level_5", label: "레벨 5 달성", icon: "⭐", desc: "레벨 5에 도달", check: (p) => p.level >= 5 },
-  { id: "level_10", label: "레벨 10 달성", icon: "🌟", desc: "레벨 10에 도달", check: (p) => p.level >= 10 },
+  { id: "first_step", label: "첫 걸음", icon: "", desc: "학습을 처음 시작했어요", check: (p) => p.totalActivities >= 1 },
+  { id: "streak_3", label: "3일 연속", icon: "", desc: "3일 연속 학습", check: (p) => p.longestStreak >= 3 },
+  { id: "streak_7", label: "일주일 연속", icon: "", desc: "7일 연속 학습", check: (p) => p.longestStreak >= 7 },
+  { id: "streak_30", label: "한 달 연속", icon: "", desc: "30일 연속 학습", check: (p) => p.longestStreak >= 30 },
+  { id: "curriculum_10", label: "코스 입문", icon: "", desc: "커리큘럼 10개 완료", check: (p) => p.curriculumCount >= 10 },
+  { id: "curriculum_50", label: "코스 절반", icon: "", desc: "커리큘럼 50개 완료", check: (p) => p.curriculumCount >= 50 },
+  { id: "curriculum_200", label: "코스 마스터", icon: "", desc: "커리큘럼 200개 완료", check: (p) => p.curriculumCount >= 200 },
+  { id: "roleplay_10", label: "상황극 입문", icon: "", desc: "상황극 10개 완료", check: (p) => p.roleplayCount >= 10 },
+  { id: "roleplay_50", label: "상황극 숙련", icon: "", desc: "상황극 50개 완료", check: (p) => p.roleplayCount >= 50 },
+  { id: "flashcard_10", label: "단어 수집가", icon: "", desc: "단어 카드 10개 암기", check: (p) => p.flashcardCount >= 10 },
+  { id: "level_5", label: "레벨 5 달성", icon: "", desc: "레벨 5에 도달", check: (p) => p.level >= 5 },
+  { id: "level_10", label: "레벨 10 달성", icon: "", desc: "레벨 10에 도달", check: (p) => p.level >= 10 },
 ];
+
+function createEmptyLocalProgress() {
+  return {
+    xp: 0,
+    rewardedIds: [],
+    activityDates: [],
+    currentStreak: 0,
+    longestStreak: 0,
+    lastActivityDate: null,
+    unlockedBadges: [],
+    curriculumCount: 0,
+    roleplayCount: 0,
+    flashcardCount: 0,
+  };
+}
 
 function xpForLevel(level) {
   // Level N requires progressively more XP: 100, 220, 360, 520, ...
@@ -47,18 +62,7 @@ function daysBetween(a, b) {
 function loadProgress() {
   const raw = localStorage.getItem(PROGRESS_KEY);
   if (!raw) {
-    return {
-      xp: 0,
-      rewardedIds: [],
-      activityDates: [],
-      currentStreak: 0,
-      longestStreak: 0,
-      lastActivityDate: null,
-      unlockedBadges: [],
-      curriculumCount: 0,
-      roleplayCount: 0,
-      flashcardCount: 0,
-    };
+    return createEmptyLocalProgress();
   }
   const parsed = JSON.parse(raw);
   parsed.rewardedIds = parsed.rewardedIds || [];
@@ -112,7 +116,17 @@ function recordActivity(uniqueId, xpAmount, kind) {
   });
 
   saveProgress(progress);
-  return { awarded: true, xpAmount, newlyUnlocked, progress: summarize(progress) };
+  const result = { awarded: true, xpAmount, newlyUnlocked, progress: summarize(progress) };
+  if (window.CloudClient?.hasToken()) {
+    window.CloudClient.recordActivity({
+      clientEventId: uniqueId,
+      kind,
+      sourceId: uniqueId.split(":").slice(1).join(":") || uniqueId,
+      xpDelta: xpAmount,
+      occurredAt: new Date().toISOString(),
+    }).then(() => window.RewardsUI?.refresh()).catch(() => {});
+  }
+  return result;
 }
 
 function summarize(progress) {
@@ -138,6 +152,32 @@ function summarize(progress) {
 
 function getProgressSummary() {
   return summarize(loadProgress());
+}
+
+// Builds a secret-free payload for a one-time cloud import, mirroring
+// progress-domain.mjs#buildMigrationPayload for the classic-script browser path.
+function getMigrationPayload() {
+  const progress = loadProgress();
+  return {
+    version: 1,
+    progress: {
+      xp: progress.xp,
+      rewardedIds: progress.rewardedIds,
+      activityDates: progress.activityDates,
+      currentStreak: progress.currentStreak,
+      longestStreak: progress.longestStreak,
+      lastActivityDate: progress.lastActivityDate,
+      unlockedBadges: progress.unlockedBadges,
+      curriculumCount: progress.curriculumCount,
+      roleplayCount: progress.roleplayCount,
+      flashcardCount: progress.flashcardCount,
+    },
+  };
+}
+
+function hasLocalProgressToMigrate() {
+  const progress = loadProgress();
+  return progress.xp > 0 || progress.rewardedIds.length > 0;
 }
 
 // Checks today's streak status without recording new activity — used so the
