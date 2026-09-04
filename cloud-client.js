@@ -2,6 +2,21 @@ const CloudClient = (() => {
   const TOKEN_KEY = "englishConvoApp.cloudToken";
   let token = localStorage.getItem(TOKEN_KEY) || "";
 
+  const ERROR_MESSAGES = {
+    UNAUTHORIZED: "이메일 또는 비밀번호를 다시 확인해 주세요.",
+    FORBIDDEN: "이 작업을 할 수 있는 권한이 없습니다.",
+    INVALID_REQUEST: "입력 내용을 다시 확인해 주세요.",
+    INVITE_UNAVAILABLE: "초대코드를 사용할 수 없습니다. 코드나 만료일을 확인해 주세요.",
+    NOT_FOUND: "요청한 항목을 찾을 수 없습니다.",
+    REWARD_UNAVAILABLE: "아직 신청할 수 없는 보상입니다.",
+    ALREADY_IMPORTED: "이미 학습 기록을 가져왔습니다.",
+    ALREADY_HAS_PROGRESS: "이미 계정에 학습 기록이 있어 가져올 수 없습니다.",
+    AI_DAILY_LIMIT: "오늘의 AI 사용 한도에 도달했습니다. 내일 다시 시도해 주세요.",
+    SUPABASE_ERROR: "서버와 통신하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    UPSTREAM_ERROR: "AI 응답을 처리하지 못했습니다. 다시 시도해 주세요.",
+    NETWORK: "요청을 처리하지 못했습니다.",
+  };
+
   async function request(path, { method = "GET", body } = {}) {
     const response = await fetch(path, {
       method,
@@ -13,7 +28,10 @@ const CloudClient = (() => {
       cache: "no-store",
     });
     const value = await response.json();
-    if (!response.ok) throw Object.assign(new Error(value.error?.message || value.error?.code || "요청을 처리하지 못했습니다."), { code: value.error?.code || "NETWORK" });
+    if (!response.ok) {
+      const code = value.error?.code || "NETWORK";
+      throw Object.assign(new Error(value.error?.message || ERROR_MESSAGES[code] || ERROR_MESSAGES.NETWORK), { code });
+    }
     if (value.session?.token) {
       token = value.session.token;
       localStorage.setItem(TOKEN_KEY, token);
