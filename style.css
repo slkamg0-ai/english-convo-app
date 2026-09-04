@@ -925,3 +925,103 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   .mic-btn.listening { animation: none; }
   .flashcard-inner, .toast, .curriculum-progress-fill { transition: none; }
 }
+
+/* Mint claymorphism re-skin, scoped to Home/Progress only. Rest of the app keeps the
+   blueprint system in DESIGN.md until this direction is confirmed on more screens. */
+#home,
+#progress {
+  --mint-surface: #fffffe;
+  --mint-primary: #a7e8d0;
+  --mint-primary-dark: #6fcf9e;
+  --mint-border: #e5e5e0;
+  --mint-focus: #00cfc4;
+  --mint-text: #1d1f20;
+  --mint-radius: 20px;
+  --mint-radius-sm: 14px;
+  --mint-shadow: 0 10px 24px rgba(90, 140, 120, 0.14), 0 2px 6px rgba(90, 140, 120, 0.08);
+}
+
+#home .card,
+#progress .card,
+#home .intro-card,
+#progress .progress-hero,
+#progress .progress-stat-grid,
+#progress .badge-item {
+  background: var(--mint-surface);
+  border: 1px solid var(--mint-border);
+  border-radius: var(--mint-radius);
+  box-shadow: var(--mint-shadow);
+}
+
+#home .intro-card,
+#progress .progress-hero { border-color: var(--mint-border); }
+
+#home .primary-btn,
+#progress .primary-btn {
+  background: var(--mint-primary);
+  border: 1px solid var(--mint-primary-dark);
+  border-radius: 999px;
+  color: var(--mint-text);
+}
+
+#home .primary-btn:hover,
+#progress .primary-btn:hover,
+#home .primary-btn:active,
+#progress .primary-btn:active {
+  background: var(--mint-primary-dark);
+  border-color: var(--mint-primary-dark);
+}
+
+#home .secondary-btn,
+#progress .secondary-btn,
+#home .icon-btn,
+#progress .icon-btn {
+  background: var(--mint-surface);
+  border: 1px solid var(--mint-border);
+  border-radius: 999px;
+  color: var(--mint-text);
+}
+
+#home .secondary-btn:hover,
+#progress .secondary-btn:hover,
+#home .icon-btn:hover,
+#progress .icon-btn:hover {
+  border-color: var(--mint-primary-dark);
+  color: var(--mint-text);
+}
+
+#home button:focus-visible,
+#progress button:focus-visible,
+#home input:focus-visible,
+#progress input:focus-visible,
+#home select:focus-visible,
+#progress select:focus-visible {
+  outline: 2px solid var(--mint-focus);
+  outline-offset: 3px;
+}
+
+#progress .progress-level-badge {
+  border-radius: 50%;
+  border: 1px solid var(--mint-primary-dark);
+  background: var(--mint-primary);
+  color: var(--mint-text);
+}
+
+#progress .progress-stat-grid { border-radius: var(--mint-radius); overflow: hidden; }
+#progress .progress-stat + .progress-stat { border-left-color: var(--mint-border); }
+
+#progress .badge-item {
+  border-radius: var(--mint-radius-sm);
+  box-shadow: none;
+}
+
+#progress .badge-item.unlocked {
+  border-color: var(--mint-primary-dark);
+  background: rgba(111, 207, 158, 0.14);
+  color: var(--mint-text);
+}
+
+#progress .curriculum-progress-bar,
+#home .curriculum-progress-bar { border-radius: 999px; overflow: hidden; }
+#progress .curriculum-progress-fill,
+#home .curriculum-progress-fill { background: var(--mint-primary-dark); }

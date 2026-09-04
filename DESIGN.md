@@ -1,5 +1,14 @@
 # English Conversation App Design System
 
+## Trial exception: Home / Progress mint re-skin
+
+Home (`#home`) and Progress (`#progress`) currently run a scoped mint claymorphism
+re-skin (rounded cards, soft shadows, pill buttons) defined at the end of `style.css`,
+kept intentionally separate from the tokens and rules below. Every other screen
+(curriculum, roleplay, flashcards, admin) still follows the blueprint system as written.
+If this direction is confirmed, migrate it into the tokens below and remove the
+`#home`/`#progress`-scoped block; if rejected, delete that block and this section.
+
 This design contract is locked to `index-redesigned.html`. Treat that bundled reference as the visual source of truth for future UI work, including token choices, spacing rhythm, component framing, Korean learning copy tone, and the compact phone-sized app shell.
 
 ## 1. Atmosphere
