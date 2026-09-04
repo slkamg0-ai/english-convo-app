@@ -433,7 +433,7 @@ async function handleRoleplay(request, env, supabase, session, fetchImpl, now) {
 }
 
 export function createWorker(deps = {}) {
-  const fetchImpl = deps.fetchImpl ?? fetch;
+  const fetchImpl = deps.fetchImpl ?? fetch.bind(globalThis);
   const randomBytes = deps.randomBytes ?? (length => crypto.getRandomValues(new Uint8Array(length)));
   const now = deps.now ?? (() => new Date());
   return {

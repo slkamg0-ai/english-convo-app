@@ -1,0 +1,13 @@
+name = "lake-english-convo-api"
+main = "src/index.js"
+compatibility_date = "2026-09-04"
+
+[vars]
+AI_DAILY_USER_LIMIT = "20"
+AI_DAILY_GLOBAL_LIMIT = "150"
+
+# Store secrets with Wrangler instead of committing them:
+# wrangler secret put SUPABASE_URL
+# wrangler secret put SUPABASE_ANON_KEY
+# wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# wrangler secret put GEMINI_API_KEY
