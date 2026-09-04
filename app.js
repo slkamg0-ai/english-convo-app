@@ -3,6 +3,11 @@ const tabButtons = document.querySelectorAll(".tab-btn");
 const tabPanels = document.querySelectorAll(".tab-panel");
 
 function showTab(name) {
+  if (name !== "roleplay") {
+    window.AIRoleplay?.pause();
+    if (typeof recognition !== "undefined") recognition?.abort();
+    window.speechSynthesis?.cancel();
+  }
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === name));
   tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === name));
   if (name === "progress") renderProgressTab();
@@ -199,7 +204,8 @@ function renderScenarioList() {
   scenarioCountEl.textContent = `${entries.length}개 상황 (전체 ${Object.keys(SCENARIOS).length}개)`;
 
   entries.forEach(([key, scenario]) => {
-    const item = document.createElement("div");
+    const item = document.createElement("button");
+    item.type = "button";
     item.className = "scenario-item";
     item.innerHTML = `<div><h3>${scenario.title}</h3><p>${scenario.description}</p></div><span>▶</span>`;
     item.addEventListener("click", () => startScenario(key));
@@ -209,7 +215,14 @@ function renderScenarioList() {
 
 scenarioSearchEl.addEventListener("input", renderScenarioList);
 
-function startScenario(key) {
+function startScenario(key, forceScripted = false) {
+  recognition?.abort();
+  window.speechSynthesis?.cancel();
+  if (!forceScripted && window.AIRoleplay?.isSelected()) {
+    window.AIRoleplay.start(key);
+    return;
+  }
+  window.AIRoleplay?.leave();
   currentScenarioKey = key;
   currentNodeKey = SCENARIOS[key].startNode;
   scenarioSelectEl.classList.add("hidden");
