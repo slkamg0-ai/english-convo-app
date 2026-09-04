@@ -1039,3 +1039,67 @@ select:hover { border-color: var(--mint-primary-dark); }
 
 .curriculum-progress-bar { border-radius: 999px; overflow: hidden; }
 .curriculum-progress-fill { background: var(--mint-primary-dark); }
+
+.promo-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+}
+
+.promo-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(29, 31, 32, 0.45);
+}
+
+.promo-popup-card {
+  position: relative;
+  width: min(100%, 360px);
+  padding: var(--space-5) var(--space-4) var(--space-4);
+  background: var(--mint-surface);
+  border: 1px solid var(--mint-border);
+  border-radius: var(--mint-radius);
+  box-shadow: var(--mint-shadow);
+}
+
+.promo-popup-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--mint-border);
+  border-radius: 50%;
+  background: var(--mint-surface);
+  color: var(--mint-text);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.promo-popup-kicker {
+  margin: 0 0 var(--space-1);
+  color: var(--mint-primary-dark);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.promo-popup-card h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-heading);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.promo-popup-body {
+  margin: 0 0 var(--space-4);
+  color: var(--color-neutral-600);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.promo-popup-actions { display: flex; justify-content: flex-end; }

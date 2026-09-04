@@ -12,6 +12,18 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="promo-popup" class="promo-popup hidden" role="dialog" aria-modal="true" aria-labelledby="promo-popup-title">
+    <div id="promo-popup-backdrop" class="promo-popup-backdrop"></div>
+    <div class="promo-popup-card">
+      <button id="promo-popup-close" class="promo-popup-close" type="button" aria-label="닫기">×</button>
+      <p class="promo-popup-kicker">EVENT</p>
+      <h2 id="promo-popup-title">500 XP 모으고 커피 쿠폰 받으세요 ☕</h2>
+      <p class="promo-popup-body">꾸준히 연습해서 500 XP를 모으면 커피 쿠폰을 신청할 수 있어요. 1000 XP, 2000 XP 보상도 이어서 준비되어 있습니다.</p>
+      <div class="promo-popup-actions">
+        <button id="promo-popup-cta" class="primary-btn" type="button">성과 보러가기</button>
+      </div>
+    </div>
+  </div>
   <div class="app-shell">
   <header class="app-header">
     <div class="app-title-row">
@@ -362,6 +374,7 @@
   <script src="rewards-ui.js"></script>
   <script src="admin-ui.js"></script>
   <script src="migration-ui.js"></script>
+  <script src="promo-popup.js"></script>
   <script src="ai-roleplay-core.js"></script>
   <script src="ai-roleplay-connection.js"></script>
   <script src="ai-roleplay-speech.js"></script>

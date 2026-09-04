@@ -17,6 +17,7 @@ function showTab(name) {
     window.RewardsUI?.refresh();
     window.AdminUI?.refresh();
   }
+  if (name === "home") window.PromoPopup?.maybeShow();
 }
 
 tabButtons.forEach((btn) => btn.addEventListener("click", () => showTab(btn.dataset.tab)));
@@ -693,3 +694,4 @@ window.AuthUI?.init();
 window.RewardsUI?.init();
 window.AdminUI?.init();
 window.MigrationUI?.init();
+window.PromoPopup?.init();

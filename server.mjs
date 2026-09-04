@@ -11,7 +11,7 @@ const FILES = new Set([
   'curriculum-data.js', 'flashcards-data.js', 'progress.js', 'ai-roleplay.js',
   'ai-roleplay-core.js', 'ai-roleplay-connection.js', 'ai-roleplay-speech.js',
   'ai-roleplay-reviews.js', 'cloud-client.js', 'auth-ui.js', 'rewards-ui.js', 'admin-ui.js', 'migration-ui.js',
-  'icon.svg', 'manifest.json',
+  'promo-popup.js', 'icon.svg', 'manifest.json',
 ]);
 const ERRORS = {
   INVALID_REQUEST: [400, '요청 내용을 확인해 주세요.'],
