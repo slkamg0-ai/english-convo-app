@@ -11,6 +11,7 @@ function showTab(name) {
   }
   tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === name));
   tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === name));
+  document.querySelector(".app-shell")?.scrollTo({ top: 0 });
   if (name === "progress") {
     renderProgressTab();
     window.RewardsUI?.refresh();
@@ -99,7 +100,7 @@ const micCheckStatusEl = document.getElementById("mic-check-status");
 
 async function checkMicAccess() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    micCheckStatusEl.textContent = "❌ 이 브라우저는 마이크 접근을 지원하지 않습니다. 텍스트로 입력해주세요.";
+    micCheckStatusEl.textContent = "이 브라우저는 마이크 접근을 지원하지 않습니다. 텍스트로 입력해주세요.";
     micCheckStatusEl.className = "note mic-check-status status-error";
     return;
   }
@@ -110,15 +111,15 @@ async function checkMicAccess() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach((track) => track.stop());
-    micCheckStatusEl.textContent = "✅ 마이크 사용 가능합니다. 상황극에서 바로 말씀하시면 돼요.";
+    micCheckStatusEl.textContent = "마이크 사용 가능합니다. 상황극에서 바로 말씀하시면 돼요.";
     micCheckStatusEl.className = "note mic-check-status status-ok";
   } catch (err) {
     if (err.name === "NotAllowedError" || err.name === "SecurityError") {
-      micCheckStatusEl.textContent = "❌ 마이크 권한이 거부되었습니다. 브라우저 주소창 옆 자물쇠 아이콘에서 마이크 권한을 허용해주세요.";
+      micCheckStatusEl.textContent = "마이크 권한이 거부되었습니다. 브라우저 주소창 옆 자물쇠 아이콘에서 마이크 권한을 허용해주세요.";
     } else if (err.name === "NotFoundError") {
-      micCheckStatusEl.textContent = "❌ 연결된 마이크를 찾을 수 없습니다. 텍스트로 입력하셔도 됩니다.";
+      micCheckStatusEl.textContent = "연결된 마이크를 찾을 수 없습니다. 텍스트로 입력하셔도 됩니다.";
     } else {
-      micCheckStatusEl.textContent = `❌ 마이크 확인 중 오류가 발생했습니다: ${err.message}`;
+      micCheckStatusEl.textContent = `마이크 확인 중 오류가 발생했습니다: ${err.message}`;
     }
     micCheckStatusEl.className = "note mic-check-status status-error";
   }
@@ -133,10 +134,10 @@ if (navigator.permissions && navigator.permissions.query) {
     .query({ name: "microphone" })
     .then((status) => {
       if (status.state === "granted") {
-        micCheckStatusEl.textContent = "✅ 마이크 권한이 이미 허용되어 있습니다.";
+        micCheckStatusEl.textContent = "마이크 권한이 이미 허용되어 있습니다.";
         micCheckStatusEl.className = "note mic-check-status status-ok";
       } else if (status.state === "denied") {
-        micCheckStatusEl.textContent = "❌ 마이크 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.";
+        micCheckStatusEl.textContent = "마이크 권한이 거부되어 있습니다. 브라우저 설정에서 허용해주세요.";
         micCheckStatusEl.className = "note mic-check-status status-error";
       }
     })
@@ -212,7 +213,7 @@ function renderScenarioList() {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "scenario-item";
-    item.innerHTML = `<div><h3>${scenario.title}</h3><p>${scenario.description}</p></div><span>▶</span>`;
+    item.innerHTML = `<div><h3>${scenario.title}</h3><p>${scenario.description}</p></div><span>시작</span>`;
     item.addEventListener("click", () => startScenario(key));
     scenarioListEl.appendChild(item);
   });
@@ -300,12 +301,12 @@ function handleUserSpeech(transcript) {
   feedbackBoxEl.classList.remove("hidden");
   if (matched) {
     feedbackBoxEl.className = "feedback-box correct";
-    feedbackTextEl.textContent = `✅ ${matched.feedback}`;
+    feedbackTextEl.textContent = matched.feedback;
     pendingOption = matched;
     nextBtn.classList.remove("hidden");
   } else {
     feedbackBoxEl.className = "feedback-box incorrect";
-    feedbackTextEl.textContent = "🤔 다시 말해보시겠어요? 아래 힌트를 참고해보세요.";
+    feedbackTextEl.textContent = "다시 말해보시겠어요? 아래 힌트를 참고해보세요.";
     hintBtn.click();
   }
 }
@@ -395,7 +396,7 @@ function saveKnownCards() {
 function renderFlashcard() {
   flashcardEl.classList.remove("flipped");
   if (dueCards.length === 0) {
-    flashFrontTextEl.textContent = "🎉 전부 외웠습니다!";
+    flashFrontTextEl.textContent = "전부 외웠습니다!";
     flashBackTextEl.textContent = "";
     flashExampleTextEl.textContent = "";
     flashExampleKoTextEl.textContent = "";
@@ -496,7 +497,7 @@ function renderCurriculumDay() {
   const dayScenarios = scenariosForDay(currentDay);
   const doneCount = dayScenarios.filter((s) => completedScenarioIds.has(s.id)).length;
   currProgressFillEl.style.width = `${(doneCount / dayScenarios.length) * 100}%`;
-  currProgressTextEl.textContent = `오늘 진행: ${doneCount} / ${dayScenarios.length}   |   전체 완료: ${completedScenarioIds.size} / ${CURRICULUM.length}`;
+  currProgressTextEl.textContent = `오늘 진행: ${doneCount} / ${dayScenarios.length} · 전체 완료: ${completedScenarioIds.size} / ${CURRICULUM.length}`;
 
   currCardsEl.innerHTML = "";
   dayScenarios.forEach((scenario) => {
@@ -506,13 +507,13 @@ function renderCurriculumDay() {
     card.innerHTML = `
       <div class="curriculum-card-header">
         <span>${scenario.categoryTitle}</span>
-        <span>${done ? "✅ 완료" : ""}</span>
+        <span>${done ? "완료" : ""}</span>
       </div>
       <p class="curriculum-card-npc">${scenario.npc}</p>
       <p class="curriculum-card-npc-ko hidden">${scenario.npcKo}</p>
       <div class="curriculum-card-btn-row">
-        <button class="icon-btn curr-speak-btn" type="button">🔊 들어보기</button>
-        <button class="icon-btn curr-translate-btn" type="button">🇰🇷 해석 보기</button>
+        <button class="icon-btn curr-speak-btn" type="button">들어보기</button>
+        <button class="icon-btn curr-translate-btn" type="button">해석 보기</button>
       </div>
       <div class="curriculum-card-row">
         <input type="text" class="curr-answer-input" placeholder="영어로 답해보세요" />
@@ -546,16 +547,16 @@ function renderCurriculumDay() {
       answerKoEl.classList.remove("hidden");
       if (correct) {
         feedbackEl.className = "curriculum-card-feedback correct";
-        feedbackEl.textContent = "✅ 좋아요! 자연스러운 답변이에요.";
+        feedbackEl.textContent = "좋아요! 자연스러운 답변이에요.";
         completedScenarioIds.add(scenario.id);
         card.classList.add("completed");
-        card.querySelector(".curriculum-card-header span:last-child").textContent = "✅ 완료";
+        card.querySelector(".curriculum-card-header span:last-child").textContent = "완료";
         saveCurrState();
         handleActivityResult(recordActivity(`curriculum:${scenario.id}`, 10, "curriculum"));
         renderCurriculumDay();
       } else {
         feedbackEl.className = "curriculum-card-feedback incorrect";
-        feedbackEl.textContent = "🤔 조금 다른 것 같아요. 아래 모범 답안을 참고해서 다시 시도해보세요.";
+        feedbackEl.textContent = "조금 다른 것 같아요. 아래 모범 답안을 참고해서 다시 시도해보세요.";
       }
     }
 
@@ -602,8 +603,8 @@ function showToast(message) {
 function handleActivityResult(result) {
   if (!result.awarded) return;
   renderHeaderStats();
-  const messages = [`✨ +${result.xpAmount} XP`];
-  result.newlyUnlocked.forEach((badge) => messages.push(`${badge.icon} 뱃지 획득: ${badge.label}`));
+  const messages = [`+${result.xpAmount} XP`];
+  result.newlyUnlocked.forEach((badge) => messages.push(`뱃지 획득: ${badge.label}`));
   showToast(messages.join("  "));
 }
 
@@ -612,8 +613,8 @@ function renderHeaderStats() {
   const headerStatsEl = document.getElementById("header-stats");
   headerStatsEl.innerHTML = `
     <span>Lv.${summary.level} <strong>${summary.levelTitle}</strong></span>
-    <span>🔥 <strong>${summary.currentStreak}</strong>일 연속</span>
-    <span>✨ <strong>${summary.xp}</strong> XP</span>
+    <span><strong>${summary.currentStreak}</strong>일 연속</span>
+    <span><strong>${summary.xp}</strong> XP</span>
   `;
 }
 
@@ -633,7 +634,7 @@ function renderProgressTab() {
 
   const nudgeEl = document.getElementById("progress-streak-nudge");
   if (summary.currentStreak > 0 && !isStreakActiveToday()) {
-    nudgeEl.textContent = `⏰ 오늘 아직 학습 안 하셨어요! 스트릭이 끊기기 전에 하나만 풀어보세요.`;
+    nudgeEl.textContent = `오늘 아직 학습 안 하셨어요! 스트릭이 끊기기 전에 하나만 풀어보세요.`;
   } else if (summary.currentStreak === 0) {
     nudgeEl.textContent = `오늘부터 학습을 시작해서 스트릭을 쌓아보세요!`;
   } else {

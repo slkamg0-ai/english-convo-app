@@ -44,10 +44,11 @@ const AuthUI = (() => {
   function bind() {
     el("signup-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const form = event.currentTarget;
       try {
-        const result = await CloudClient.signup(formData(event.currentTarget));
+        const result = await CloudClient.signup(formData(form));
         state = { user: result.user };
-        event.currentTarget.reset();
+        form.reset();
         setStatus("초대 가입이 완료되었습니다.");
       } catch (error) { setStatus(error.message, true); }
       render();
@@ -55,10 +56,11 @@ const AuthUI = (() => {
     });
     el("login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const form = event.currentTarget;
       try {
-        const result = await CloudClient.login(formData(event.currentTarget));
+        const result = await CloudClient.login(formData(form));
         state = { user: result.user };
-        event.currentTarget.reset();
+        form.reset();
         setStatus("로그인되었습니다.");
       } catch (error) { setStatus(error.message, true); }
       render();

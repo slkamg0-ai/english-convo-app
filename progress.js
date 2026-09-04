@@ -10,18 +10,18 @@ const LEVEL_TITLES = [
 ];
 
 const BADGE_DEFS = [
-  { id: "first_step", label: "첫 걸음", icon: "🌱", desc: "학습을 처음 시작했어요", check: (p) => p.totalActivities >= 1 },
-  { id: "streak_3", label: "3일 연속", icon: "🔥", desc: "3일 연속 학습", check: (p) => p.longestStreak >= 3 },
-  { id: "streak_7", label: "일주일 연속", icon: "🔥", desc: "7일 연속 학습", check: (p) => p.longestStreak >= 7 },
-  { id: "streak_30", label: "한 달 연속", icon: "🏆", desc: "30일 연속 학습", check: (p) => p.longestStreak >= 30 },
-  { id: "curriculum_10", label: "코스 입문", icon: "📘", desc: "커리큘럼 10개 완료", check: (p) => p.curriculumCount >= 10 },
-  { id: "curriculum_50", label: "코스 절반", icon: "📗", desc: "커리큘럼 50개 완료", check: (p) => p.curriculumCount >= 50 },
-  { id: "curriculum_200", label: "코스 마스터", icon: "📕", desc: "커리큘럼 200개 완료", check: (p) => p.curriculumCount >= 200 },
-  { id: "roleplay_10", label: "상황극 입문", icon: "🎭", desc: "상황극 10개 완료", check: (p) => p.roleplayCount >= 10 },
-  { id: "roleplay_50", label: "상황극 숙련", icon: "🎬", desc: "상황극 50개 완료", check: (p) => p.roleplayCount >= 50 },
-  { id: "flashcard_10", label: "단어 수집가", icon: "🃏", desc: "단어 카드 10개 암기", check: (p) => p.flashcardCount >= 10 },
-  { id: "level_5", label: "레벨 5 달성", icon: "⭐", desc: "레벨 5에 도달", check: (p) => p.level >= 5 },
-  { id: "level_10", label: "레벨 10 달성", icon: "🌟", desc: "레벨 10에 도달", check: (p) => p.level >= 10 },
+  { id: "first_step", label: "첫 걸음", icon: "", desc: "학습을 처음 시작했어요", check: (p) => p.totalActivities >= 1 },
+  { id: "streak_3", label: "3일 연속", icon: "", desc: "3일 연속 학습", check: (p) => p.longestStreak >= 3 },
+  { id: "streak_7", label: "일주일 연속", icon: "", desc: "7일 연속 학습", check: (p) => p.longestStreak >= 7 },
+  { id: "streak_30", label: "한 달 연속", icon: "", desc: "30일 연속 학습", check: (p) => p.longestStreak >= 30 },
+  { id: "curriculum_10", label: "코스 입문", icon: "", desc: "커리큘럼 10개 완료", check: (p) => p.curriculumCount >= 10 },
+  { id: "curriculum_50", label: "코스 절반", icon: "", desc: "커리큘럼 50개 완료", check: (p) => p.curriculumCount >= 50 },
+  { id: "curriculum_200", label: "코스 마스터", icon: "", desc: "커리큘럼 200개 완료", check: (p) => p.curriculumCount >= 200 },
+  { id: "roleplay_10", label: "상황극 입문", icon: "", desc: "상황극 10개 완료", check: (p) => p.roleplayCount >= 10 },
+  { id: "roleplay_50", label: "상황극 숙련", icon: "", desc: "상황극 50개 완료", check: (p) => p.roleplayCount >= 50 },
+  { id: "flashcard_10", label: "단어 수집가", icon: "", desc: "단어 카드 10개 암기", check: (p) => p.flashcardCount >= 10 },
+  { id: "level_5", label: "레벨 5 달성", icon: "", desc: "레벨 5에 도달", check: (p) => p.level >= 5 },
+  { id: "level_10", label: "레벨 10 달성", icon: "", desc: "레벨 10에 도달", check: (p) => p.level >= 10 },
 ];
 
 function createEmptyLocalProgress() {

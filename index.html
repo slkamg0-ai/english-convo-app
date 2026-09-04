@@ -8,15 +8,12 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="app-shell">
   <header class="app-header">
-    <h1>LAKE영어회화연습</h1>
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="home">홈</button>
-      <button class="tab-btn" data-tab="curriculum">200일 코스</button>
-      <button class="tab-btn" data-tab="roleplay">상황극</button>
-      <button class="tab-btn" data-tab="flashcards">단어 카드</button>
-      <button class="tab-btn" data-tab="progress">내 성과</button>
-    </nav>
+    <div class="app-title-row">
+      <span class="section-kicker">WORKBOOK</span>
+      <h1>LAKE 영어</h1>
+    </div>
     <div id="header-stats" class="header-stats"></div>
   </header>
 
@@ -30,7 +27,7 @@
           <button class="secondary-btn" data-goto="roleplay">상황극 연습</button>
           <button class="secondary-btn" data-goto="flashcards">단어 카드 복습</button>
         </div>
-        <p class="note">⚠️ 음성인식은 Chrome 브라우저에서 가장 잘 동작합니다. 마이크가 없으면 텍스트로 입력해도 됩니다.</p>
+        <p class="note">음성인식은 Chrome 브라우저에서 가장 잘 동작합니다. 마이크가 없으면 텍스트로 입력해도 됩니다.</p>
       </div>
 
       <div id="account-panel" class="card account-card">
@@ -67,14 +64,14 @@
         <p class="note">기기에 설치된 음성 중 자동으로 가장 자연스러운 영어 음성을 골라둡니다. 마음에 드는 목소리로 직접 바꿀 수도 있어요.</p>
         <div class="voice-select-row">
           <select id="voice-select" aria-label="영어 음성 선택"></select>
-          <button id="voice-test-btn" class="secondary-btn">🔊 테스트</button>
+          <button id="voice-test-btn" class="secondary-btn">테스트</button>
         </div>
       </div>
 
       <div class="card">
         <h2>마이크 상태 확인</h2>
         <p class="note">상황극에서 말하기 전에 미리 마이크 권한을 확인해두면 편해요. (마이크가 없으면 건너뛰고 텍스트로 입력하시면 됩니다)</p>
-        <button id="mic-check-btn" class="secondary-btn">🎙️ 마이크 확인</button>
+        <button id="mic-check-btn" class="secondary-btn">마이크 확인</button>
         <p id="mic-check-status" class="note mic-check-status"></p>
       </div>
     </section>
@@ -82,18 +79,18 @@
     <section id="curriculum" class="tab-panel">
       <div class="card">
         <div class="curriculum-header">
-          <button id="curr-prev-day" class="icon-btn">◀ 이전</button>
+          <button id="curr-prev-day" class="icon-btn">이전</button>
           <div class="curriculum-day-label">
             <strong id="curr-day-title">Day 1</strong>
             <span id="curr-day-sub">/ 200일</span>
           </div>
-          <button id="curr-next-day" class="icon-btn">다음 ▶</button>
+          <button id="curr-next-day" class="icon-btn">다음</button>
         </div>
         <div class="curriculum-progress-bar">
           <div id="curr-progress-fill" class="curriculum-progress-fill"></div>
         </div>
         <p id="curr-progress-text" class="note"></p>
-        <button id="curr-jump-today" class="link-btn">▶ 다음 미완료 날짜로 이동</button>
+        <button id="curr-jump-today" class="link-btn">다음 미완료 날짜로 이동</button>
       </div>
 
       <div id="curr-cards"></div>
@@ -114,7 +111,7 @@
       </div>
       <div id="scenario-select" class="card">
         <h2>상황 선택</h2>
-        <input id="scenario-search" aria-label="상황 검색" type="text" class="scenario-search-input" placeholder="🔍 상황 검색 (예: 호텔, 커피, 은행...)" />
+        <input id="scenario-search" aria-label="상황 검색" type="text" class="scenario-search-input" placeholder="상황 검색 (예: 호텔, 커피, 은행...)" />
         <p id="scenario-count" class="note"></p>
         <div id="scenario-list" class="scenario-list"></div>
       </div>
@@ -130,13 +127,13 @@
           <p id="npc-text"></p>
           <p id="npc-text-ko" class="npc-text-ko hidden"></p>
           <div class="curriculum-card-btn-row">
-            <button id="replay-npc" class="icon-btn" title="다시 듣기">🔊 다시 듣기</button>
-            <button id="translate-npc" class="icon-btn">🇰🇷 해석 보기</button>
+            <button id="replay-npc" class="icon-btn" title="다시 듣기">다시 듣기</button>
+            <button id="translate-npc" class="icon-btn">해석 보기</button>
           </div>
         </div>
 
         <div class="user-turn">
-          <button id="mic-btn" class="mic-btn">🎤 눌러서 말하기</button>
+          <button id="mic-btn" class="mic-btn">눌러서 말하기</button>
           <div id="mic-status" class="mic-status"></div>
           <p id="transcript" class="transcript"></p>
           <div class="text-fallback-row">
@@ -151,19 +148,19 @@
         </div>
 
         <div class="hint-row">
-          <button id="hint-btn" class="link-btn">💡 예문 힌트 보기</button>
+          <button id="hint-btn" class="link-btn">예문 힌트 보기</button>
           <p id="hint-text" class="hint-text hidden"></p>
           <p id="hint-text-ko" class="hint-text hint-text-ko hidden"></p>
         </div>
 
         <div id="scenario-end" class="scenario-end hidden">
-          <p>🎉 상황극을 완료했습니다!</p>
+          <p>상황극을 완료했습니다.</p>
           <button id="restart-scenario" class="secondary-btn">다시 하기</button>
         </div>
       </div>
 
       <div id="ai-play" class="card ai-card hidden">
-        <button id="ai-back" class="link-btn" type="button">← 상황 목록으로</button>
+        <button id="ai-back" class="link-btn" type="button">상황 목록으로</button>
         <div class="ai-heading-row"><h2 id="ai-scenario-title"></h2><span class="ai-badge">Gemini AI</span></div>
         <p id="ai-session-info" class="note"></p>
         <p id="ai-retry-goal" class="ai-retry-goal hidden"></p>
@@ -218,7 +215,7 @@
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
               <p id="flash-front-text"></p>
-              <button id="flash-speak" class="icon-btn" title="발음 듣기">🔊</button>
+              <button id="flash-speak" class="icon-btn" title="발음 듣기">듣기</button>
             </div>
             <div class="flashcard-face flashcard-back">
               <p id="flash-back-text"></p>
@@ -229,8 +226,8 @@
         </div>
         <p class="note">카드를 클릭하면 뒤집힙니다</p>
         <div class="flash-actions">
-          <button id="flash-dontknow" class="secondary-btn">🔁 아직 모름</button>
-          <button id="flash-know" class="primary-btn">✅ 알고 있음</button>
+          <button id="flash-dontknow" class="secondary-btn">아직 모름</button>
+          <button id="flash-know" class="primary-btn">알고 있음</button>
         </div>
         <button id="flash-reset" class="link-btn">전체 초기화</button>
       </div>
@@ -254,7 +251,7 @@
         <div class="progress-stat-grid">
           <div class="progress-stat">
             <span class="progress-stat-value" id="progress-streak">0</span>
-            <span class="progress-stat-label">🔥 연속 학습일</span>
+            <span class="progress-stat-label">연속 학습일</span>
           </div>
           <div class="progress-stat">
             <span class="progress-stat-value" id="progress-longest-streak">0</span>
@@ -309,6 +306,29 @@
     </section>
   </main>
 
+  <nav class="tabs" aria-label="앱 메뉴">
+    <button class="tab-btn active" data-tab="home" type="button">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+      <span>홈</span>
+    </button>
+    <button class="tab-btn" data-tab="curriculum" type="button">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 6c-1.6-1.1-4.1-1.6-6-1v13c1.9-.6 4.4-.1 6 1"/><path d="M12 6c1.6-1.1 4.1-1.6 6-1v13c-1.9-.6-4.4-.1-6 1z"/></svg>
+      <span>코스</span>
+    </button>
+    <button class="tab-btn" data-tab="roleplay" type="button">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-1.2 4.3L21 20l-4.4-1.2a8.4 8.4 0 1 1 4.4-7.3Z"/></svg>
+      <span>상황극</span>
+    </button>
+    <button class="tab-btn" data-tab="flashcards" type="button">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+      <span>카드</span>
+    </button>
+    <button class="tab-btn" data-tab="progress" type="button">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+      <span>성과</span>
+    </button>
+  </nav>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="scenarios.js"></script>
@@ -326,5 +346,6 @@
   <script src="ai-roleplay-reviews.js"></script>
   <script src="app.js"></script>
   <script src="ai-roleplay.js"></script>
+  </div>
 </body>
 </html>
