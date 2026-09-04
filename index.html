@@ -323,7 +323,10 @@
           <label>초대 사용 횟수<input name="maxUses" type="number" min="1" max="20" value="1" /></label>
           <button class="secondary-btn" type="submit">초대 만들기</button>
         </form>
-        <p id="new-invite-code" class="note"></p>
+        <div id="new-invite-row" class="ai-actions hidden">
+          <p id="new-invite-code" class="note"></p>
+          <button id="new-invite-copy" class="link-btn" type="button">코드 복사</button>
+        </div>
         <p id="admin-status" class="note" role="status"></p>
         <div id="invite-list" class="admin-table"></div>
         <div id="admin-claim-list" class="admin-table"></div>

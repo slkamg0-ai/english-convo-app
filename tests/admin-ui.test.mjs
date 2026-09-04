@@ -19,6 +19,15 @@ test('invite form submit handler does not read event.currentTarget after an awai
   assert.doesNotMatch(source, /await[^;]*;\s*[\s\S]{0,80}event\.currentTarget/);
 });
 
+test('invite table never falls back to the invite id as if it were the plain code', async () => {
+  const source = await readFile(new URL('../admin-ui.js', import.meta.url), 'utf8');
+
+  // GET /api/admin/invites never returns the plain code (by design — it's shown once
+  // at creation). Falling back to invite.id there renders a UUID that looks enough
+  // like a code that an admin can copy-paste it to a learner, who then can't sign up.
+  assert.doesNotMatch(source, /invite\.code \|\| invite\.id/);
+});
+
 test('reward rules renderer does not inject server-provided HTML', async () => {
   const source = await readFile(new URL('../rewards-ui.js', import.meta.url), 'utf8');
 

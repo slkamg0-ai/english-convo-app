@@ -1,5 +1,10 @@
 const AdminUI = (() => {
   const el = (id) => document.getElementById(id);
+  // The server returns a newly created invite's plain code exactly once; it is never
+  // included in later GET /api/admin/invites responses. Remember codes created this
+  // session so the table can still show them after a refresh, without ever falling
+  // back to invite.id (a UUID an admin could mistake for a real, shareable code).
+  const knownCodes = new Map();
 
   function option(status, claim) {
     const button = document.createElement("button");
@@ -31,7 +36,8 @@ const AdminUI = (() => {
     const rows = invites.map((invite) => {
       const row = document.createElement("div");
       row.className = "admin-table-row";
-      row.replaceChildren(cell(invite.code || invite.id), cell(`${invite.uses}/${invite.maxUses}`), cell(invite.expiresAt || "무기한"));
+      const code = invite.code || knownCodes.get(invite.id) || "비공개 (재발급 필요)";
+      row.replaceChildren(cell(code), cell(`${invite.uses}/${invite.maxUses}`), cell(invite.expiresAt || "무기한"));
       return row;
     });
     el("invite-list").replaceChildren(table("admin-table", ["초대", "사용", "만료"], rows));
@@ -80,11 +86,24 @@ const AdminUI = (() => {
       const maxUses = Number(new FormData(form).get("maxUses") || 1);
       try {
         const result = await CloudClient.createInvite({ maxUses });
+        if (result.invite?.id) knownCodes.set(result.invite.id, result.code);
         el("new-invite-code").textContent = `새 초대코드: ${result.code}`;
+        el("new-invite-row").classList.remove("hidden");
         form.reset();
         await refresh();
       } catch (error) {
         el("admin-status").textContent = error.message;
+      }
+    });
+
+    el("new-invite-copy").addEventListener("click", async () => {
+      const [, code] = el("new-invite-code").textContent.split(": ");
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        el("admin-status").textContent = "코드를 복사했습니다.";
+      } catch {
+        el("admin-status").textContent = "복사에 실패했습니다. 직접 선택해 복사해 주세요.";
       }
     });
   }
