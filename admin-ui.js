@@ -10,13 +10,31 @@ const AdminUI = (() => {
     return button;
   }
 
+  function cell(text) {
+    const item = document.createElement("span");
+    item.textContent = text;
+    return item;
+  }
+
+  function table(className, headers, rows) {
+    const wrap = document.createElement("div");
+    const head = document.createElement("div");
+    wrap.className = className;
+    head.className = "admin-table-head";
+    head.replaceChildren(...headers.map(cell));
+    wrap.appendChild(head);
+    rows.forEach((row) => wrap.appendChild(row));
+    return wrap;
+  }
+
   function renderInvites(invites) {
-    el("invite-list").replaceChildren(...invites.map((invite) => {
-      const row = document.createElement("p");
-      row.className = "admin-row";
-      row.textContent = `${invite.code || invite.id} · ${invite.uses}/${invite.maxUses}`;
+    const rows = invites.map((invite) => {
+      const row = document.createElement("div");
+      row.className = "admin-table-row";
+      row.replaceChildren(cell(invite.code || invite.id), cell(`${invite.uses}/${invite.maxUses}`), cell(invite.expiresAt || "무기한"));
       return row;
-    }));
+    });
+    el("invite-list").replaceChildren(table("admin-table", ["초대", "사용", "만료"], rows));
   }
 
   function claimSummary(claim) {
@@ -30,12 +48,13 @@ const AdminUI = (() => {
   }
 
   function renderClaims(claims) {
-    el("admin-claim-list").replaceChildren(...claims.map((claim) => {
+    const rows = claims.map((claim) => {
       const row = document.createElement("div");
-      row.className = "admin-claim-row";
+      row.className = "admin-table-row admin-claim-row";
       row.append(claimSummary(claim), option("approved", claim), option("delivered", claim), option("rejected", claim));
       return row;
-    }));
+    });
+    el("admin-claim-list").replaceChildren(table("admin-table admin-claims-table", ["학습자", "승인", "전달", "반려"], rows));
   }
 
   async function refresh() {
