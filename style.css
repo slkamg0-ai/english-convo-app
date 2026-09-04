@@ -952,10 +952,16 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .progress-hero,
 .progress-stat-grid,
 .badge-item,
-.flashcard-face,
 .admin-table {
   background: var(--mint-surface);
   border: 1px solid var(--mint-border);
+  border-radius: var(--mint-radius);
+  box-shadow: var(--mint-shadow);
+}
+
+/* .flashcard-front/.flashcard-back each need their own background for flip contrast
+   (see style.css around line 553), so only radius/shadow are shared here. */
+.flashcard-face {
   border-radius: var(--mint-radius);
   box-shadow: var(--mint-shadow);
 }
