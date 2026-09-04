@@ -44,6 +44,21 @@ Gemini 키는 운영자가 서버 또는 Worker secret으로만 보관합니다.
 
 이 구현은 **브라우저 음성인식 + 텍스트 기반 Gemini API + 브라우저 음성합성**입니다. 통화형 원음 스트리밍이나 Gemini Live API 구현은 아닙니다. 음성 품질과 인식 지원은 브라우저/운영체제에 따라 달라집니다. 영어 음성은 홈의 음성 설정에서 고를 수 있습니다.
 
+## 무료 클라우드 배포 가이드 (운영자용)
+
+약 10명 규모의 초대제 서비스를 유료 결제 없이 운영하는 절차입니다. `.env.example`을 참고해 실제 값은 커밋하지 말고 각 플랫폼의 secret 저장소에만 넣습니다.
+
+1. **Supabase 무료 프로젝트 생성**: [supabase.com](https://supabase.com)에서 새 프로젝트를 만듭니다. 결제 수단은 연결하지 않습니다.
+2. **마이그레이션 적용**: Supabase SQL Editor 또는 CLI로 `supabase/migrations/0001_multi_user_rewards.sql`을 실행해 테이블·RLS·RPC(`record_activity`, `claim_reward`, `reserve_invite`, `release_invite`, `reserve_ai_usage`, `import_local_progress`)와 기본 보상 3종을 만듭니다.
+3. **첫 관리자 계정 생성**: Supabase Auth에서 운영자 이메일로 계정을 만든 뒤, `profiles` 테이블에서 해당 `user_id`의 `role`을 `admin`으로 직접 수정합니다(최초 1회는 SQL Editor로 처리).
+4. **초대코드 발급**: 관리자 계정으로 로그인해 앱의 관리자 화면(`/api/admin/invites`)에서 초대코드를 만듭니다. 평문 코드는 생성 시 한 번만 표시되므로 안전하게 전달합니다.
+5. **Cloudflare Pages/Worker 프로젝트 생성**: 정적 프런트엔드는 Cloudflare Pages에, `worker/src/index.js`는 Cloudflare Worker로 배포합니다. `worker/wrangler.toml.example`을 `wrangler.toml`로 복사해 프로젝트 이름을 정합니다.
+6. **Worker secret 등록**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`를 `wrangler secret put <이름>`으로 등록합니다. 코드나 저장소에 실제 값을 남기지 않습니다.
+7. **일일 AI 사용량 한도 설정**: `wrangler.toml`의 `[vars]`에서 `AI_DAILY_USER_LIMIT`(사용자별 하루 요청 수), `AI_DAILY_GLOBAL_LIMIT`(전체 하루 요청 수)을 무료 한도 안에서 설정합니다.
+8. **결제 수단 미연결 유지**: Supabase, Cloudflare, Google AI Studio 어느 쪽에도 결제 수단을 등록하지 않는 한 무료 운영이 유지됩니다. 등록하면 이 가이드의 무료 전제가 깨집니다.
+9. **보상은 수동 처리**: 리워드 신청은 자동 발송되지 않습니다. 운영자가 관리자 화면에서 신청 목록을 확인해 실제 쿠폰/상품을 전달한 뒤 상태를 `approved`/`delivered`로 갱신합니다.
+10. **기존 로컬 기록 이전**: 이전 버전을 로컬로 쓰던 사용자가 로그인하면 홈 화면 계정 패널에 기존 학습 기록 가져오기 카드가 한 번 표시됩니다. 가져오기는 계정당 한 번만 가능합니다.
+
 ## 검증
 
 ```sh
