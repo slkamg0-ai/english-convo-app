@@ -10,6 +10,15 @@ test('admin claims renderer does not inject learner-controlled HTML', async () =
   assert.match(source, /reward\.textContent = `\$\{claim\.rewardLabel/);
 });
 
+test('invite form submit handler does not read event.currentTarget after an await', async () => {
+  const source = await readFile(new URL('../admin-ui.js', import.meta.url), 'utf8');
+
+  // event.currentTarget is nulled out once the DOM event dispatch finishes, which
+  // happens synchronously before an awaited promise resolves — reading it afterward
+  // throws "Cannot read properties of null" instead of resetting the form.
+  assert.doesNotMatch(source, /await[^;]*;\s*[\s\S]{0,80}event\.currentTarget/);
+});
+
 test('reward rules renderer does not inject server-provided HTML', async () => {
   const source = await readFile(new URL('../rewards-ui.js', import.meta.url), 'utf8');
 

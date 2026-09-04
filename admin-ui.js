@@ -76,11 +76,12 @@ const AdminUI = (() => {
   function bind() {
     el("invite-form").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const maxUses = Number(new FormData(event.currentTarget).get("maxUses") || 1);
+      const form = event.currentTarget;
+      const maxUses = Number(new FormData(form).get("maxUses") || 1);
       try {
         const result = await CloudClient.createInvite({ maxUses });
         el("new-invite-code").textContent = `새 초대코드: ${result.code}`;
-        event.currentTarget.reset();
+        form.reset();
         await refresh();
       } catch (error) {
         el("admin-status").textContent = error.message;
