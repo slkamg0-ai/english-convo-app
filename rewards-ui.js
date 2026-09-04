@@ -8,6 +8,23 @@ const RewardsUI = (() => {
     return `${rule.requiredXp} XP 필요`;
   }
 
+  function rewardDetails(rule) {
+    const body = document.createElement("div");
+    const label = document.createElement("strong");
+    const description = document.createElement("p");
+    label.textContent = rule.label || rule.id || "리워드";
+    description.textContent = rule.description || "운영자가 확인 후 전달합니다.";
+    body.append(label, description);
+    return body;
+  }
+
+  function statusTag(rule) {
+    const badge = document.createElement("span");
+    badge.className = "status-tag";
+    badge.textContent = tag(rule);
+    return badge;
+  }
+
   function render(data) {
     const summary = data?.summary || getProgressSummary();
     el("reward-xp").textContent = summary.xp;
@@ -17,14 +34,13 @@ const RewardsUI = (() => {
     el("reward-list").replaceChildren(...rules.map((rule) => {
       const item = document.createElement("article");
       item.className = `reward-card${rule.eligible ? " reward-card-ready" : ""}`;
-      item.innerHTML = `<div><strong>${rule.label}</strong><p>${rule.description}</p></div><span class="status-tag">${tag(rule)}</span>`;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "secondary-btn";
       button.textContent = "보상 신청";
       button.disabled = busy || !rule.eligible;
       button.addEventListener("click", () => claim(rule.id));
-      item.append(button);
+      item.append(rewardDetails(rule), statusTag(rule), button);
       return item;
     }));
     el("claim-list").replaceChildren(...(data?.claims || []).map((claim) => {

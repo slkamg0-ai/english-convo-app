@@ -222,13 +222,24 @@ async function handleInviteCreate(request, supabase, session, randomBytes) {
   return json({ code, invite: Array.isArray(rows) ? rows[0] : rows });
 }
 
+function adminInvite(invite) {
+  return {
+    id: invite.id,
+    maxUses: invite.max_uses,
+    uses: invite.uses,
+    expiresAt: invite.expires_at,
+    createdBy: invite.created_by,
+    createdAt: invite.created_at,
+  };
+}
+
 async function handleInviteList(supabase, session) {
   requireAdmin(session);
   const invites = await supabase.request('/rest/v1/invites?select=id,max_uses,uses,expires_at,created_by,created_at&order=created_at.desc', {
     method: 'GET',
     key: supabase.env.SUPABASE_SERVICE_ROLE_KEY,
   });
-  return json({ invites });
+  return json({ invites: (Array.isArray(invites) ? invites : []).map(adminInvite) });
 }
 
 async function handleProgress(request, supabase, session) {

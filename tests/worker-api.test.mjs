@@ -218,7 +218,15 @@ test('GET /api/admin/invites lists invite metadata for admins only without plain
   const userResponse = await api.fetch(request('/api/admin/invites', { method: 'GET', headers: authHeaders }), env);
 
   assert.equal(adminResponse.status, 200);
-  assert.deepEqual([adminBody, JSON.stringify(adminBody).includes('JOIN-2026'), userResponse.status], [{ invites }, false, 403]);
+  assert.deepEqual(adminBody, { invites: [{
+    id: 'invite-1',
+    maxUses: 2,
+    uses: 1,
+    expiresAt: '2026-09-30T00:00:00.000Z',
+    createdBy: 'admin-user',
+    createdAt: '2026-09-04T00:00:00.000Z',
+  }] });
+  assert.deepEqual([JSON.stringify(adminBody).includes('JOIN-2026'), userResponse.status], [false, 403]);
 });
 
 test('authenticated /api/progress calls Supabase RPC record_activity', async () => {
