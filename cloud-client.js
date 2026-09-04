@@ -9,6 +9,7 @@ const CloudClient = (() => {
     INVITE_UNAVAILABLE: "초대코드를 사용할 수 없습니다. 코드나 만료일을 확인해 주세요.",
     NOT_FOUND: "요청한 항목을 찾을 수 없습니다.",
     REWARD_UNAVAILABLE: "아직 신청할 수 없는 보상입니다.",
+    REWARD_ALREADY_CLAIMED: "이미 신청한 보상입니다.",
     ALREADY_IMPORTED: "이미 학습 기록을 가져왔습니다.",
     ALREADY_HAS_PROGRESS: "이미 계정에 학습 기록이 있어 가져올 수 없습니다.",
     AI_DAILY_LIMIT: "오늘의 AI 사용 한도에 도달했습니다. 내일 다시 시도해 주세요.",

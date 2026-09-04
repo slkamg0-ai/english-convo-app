@@ -479,6 +479,82 @@ test('POST /api/progress/import rejects an invalid payload without calling Supab
   assert.equal(calls.some(call => call.url.includes('/rest/v1/rpc/import_local_progress')), false);
 });
 
+test('POST /api/progress/import translates a Postgrest conflict into ALREADY_IMPORTED', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/import_local_progress')) {
+      return responseJson({ code: '23505', message: 'Local progress already imported' }, 409);
+    }
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress/import', {
+    headers: authHeaders,
+    body: { progress: { xp: 10, currentStreak: 1, rewardedIds: [] } },
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error.code, 'ALREADY_IMPORTED');
+});
+
+test('POST /api/progress/import translates a Postgrest conflict into ALREADY_HAS_PROGRESS', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/import_local_progress')) {
+      return responseJson({ code: '23505', message: 'Cloud progress already exists' }, 409);
+    }
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/progress/import', {
+    headers: authHeaders,
+    body: { progress: { xp: 10, currentStreak: 1, rewardedIds: [] } },
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error.code, 'ALREADY_HAS_PROGRESS');
+});
+
+test('/api/rewards/claim translates a Postgrest conflict into REWARD_ALREADY_CLAIMED', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/claim_reward')) {
+      return responseJson({ code: '23505', message: 'Reward already claimed' }, 409);
+    }
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/rewards/claim', {
+    headers: authHeaders,
+    body: { ruleId: '11111111-1111-4111-8111-111111111111' },
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error.code, 'REWARD_ALREADY_CLAIMED');
+});
+
+test('/api/rewards/claim translates a not-eligible Postgrest error into REWARD_UNAVAILABLE', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/claim_reward')) {
+      return responseJson({ code: '22023', message: 'Not enough XP for this reward' }, 400);
+    }
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/rewards/claim', {
+    headers: authHeaders,
+    body: { ruleId: '11111111-1111-4111-8111-111111111111' },
+  }), env);
+
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, 'REWARD_UNAVAILABLE');
+});
+
 test('Worker RPC names are defined in Supabase migration', async () => {
   const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
 

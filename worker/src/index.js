@@ -6,10 +6,11 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 class HttpError extends Error {
-  constructor(status, code) {
+  constructor(status, code, details) {
     super(code);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -52,7 +53,11 @@ class SupabaseClient {
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
-    if (!response.ok) throw new HttpError(response.status, 'SUPABASE_ERROR');
+    if (!response.ok) {
+      let details = null;
+      try { details = await response.json(); } catch { details = null; }
+      throw new HttpError(response.status, 'SUPABASE_ERROR', details);
+    }
     if (response.status === 204) return null;
     return response.json();
   }
@@ -256,6 +261,14 @@ async function handleProgress(request, supabase, session) {
   return json({ progress });
 }
 
+function translateRpcConflict(error, rules) {
+  if (!(error instanceof HttpError)) throw error;
+  const message = error.details?.message || '';
+  const matched = rules.find(rule => message.includes(rule.match));
+  if (matched) throw new HttpError(matched.status, matched.code);
+  throw error;
+}
+
 function validateImportProgress(progress) {
   if (!progress || typeof progress !== 'object') throw new HttpError(400, 'INVALID_REQUEST');
   if (!Number.isInteger(progress.xp) || progress.xp < 0) throw new HttpError(400, 'INVALID_REQUEST');
@@ -270,12 +283,20 @@ async function handleProgressImport(request, supabase, session) {
   const progress = body?.progress;
   validateImportProgress(progress);
   const completedCount = Array.isArray(progress.rewardedIds) ? progress.rewardedIds.length : 0;
-  const summary = await supabase.rpc('import_local_progress', {
-    xp: progress.xp,
-    current_streak: progress.currentStreak,
-    last_activity_date: progress.lastActivityDate ?? null,
-    completed_count: completedCount,
-  }, session.token);
+  let summary;
+  try {
+    summary = await supabase.rpc('import_local_progress', {
+      xp: progress.xp,
+      current_streak: progress.currentStreak,
+      last_activity_date: progress.lastActivityDate ?? null,
+      completed_count: completedCount,
+    }, session.token);
+  } catch (error) {
+    translateRpcConflict(error, [
+      { match: 'already imported', code: 'ALREADY_IMPORTED', status: 409 },
+      { match: 'Cloud progress already exists', code: 'ALREADY_HAS_PROGRESS', status: 409 },
+    ]);
+  }
   return json({ summary: progressSummary([summary]) });
 }
 
@@ -333,7 +354,16 @@ async function handleRewards(supabase, session) {
 async function handleRewardClaim(request, supabase, session) {
   const body = await readBody(request);
   if (!requiredString(body?.ruleId, 80)) throw new HttpError(400, 'INVALID_REQUEST');
-  const claim = await supabase.rpc('claim_reward', { rule_id: body.ruleId }, session.token);
+  let claim;
+  try {
+    claim = await supabase.rpc('claim_reward', { rule_id: body.ruleId }, session.token);
+  } catch (error) {
+    translateRpcConflict(error, [
+      { match: 'already claimed', code: 'REWARD_ALREADY_CLAIMED', status: 409 },
+      { match: 'not available', code: 'REWARD_UNAVAILABLE', status: 400 },
+      { match: 'Not enough XP', code: 'REWARD_UNAVAILABLE', status: 400 },
+    ]);
+  }
   return json({ claim });
 }
 
