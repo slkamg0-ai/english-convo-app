@@ -1,7 +1,7 @@
 import { generation, parseOutput, validate } from '../../gemini-service.mjs';
 
 // SIZE_OK: Worker route module stays together to share one Supabase adapter and avoid divergent auth/reward logic.
-const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // Bearer-token auth (no cookies), so a wildcard origin cannot be used to steal a session via CSRF.
 const CORS_HEADERS = {
@@ -52,7 +52,9 @@ class SupabaseClient {
     const response = await this.fetchImpl(`${this.env.SUPABASE_URL}${path}`, {
       method: options.method,
       headers: {
-        apikey: options.key,
+        // The Supabase gateway's `apikey` header must be the project's own key; the
+        // caller's role (anon-scoped user vs. service role) is carried by Authorization.
+        apikey: this.env.SUPABASE_ANON_KEY,
         Authorization: `Bearer ${options.key}`,
         'Content-Type': 'application/json',
         ...(options.prefer ? { Prefer: options.prefer } : {}),
@@ -122,7 +124,12 @@ class SupabaseClient {
     try {
       return await this.rpc('reserve_ai_usage', limits, key);
     } catch (error) {
-      if (error instanceof HttpError) throw new HttpError(429, 'AI_DAILY_LIMIT');
+      if (error instanceof HttpError && (error.details?.message || '').includes('limit reached')) {
+        throw new HttpError(429, 'AI_DAILY_LIMIT');
+      }
+      if (error instanceof HttpError) {
+        console.error('reserve_ai_usage failed:', error.status, JSON.stringify(error.details));
+      }
       throw error;
     }
   }
@@ -257,12 +264,12 @@ async function handleInviteList(supabase, session) {
 async function handleProgress(request, supabase, session) {
   const body = await readBody(request);
   const progress = await supabase.rpc('record_activity', {
-    client_event_id: body.clientEventId,
-    kind: body.kind,
-    source_id: body.sourceId ?? null,
-    xp_delta: body.xpDelta,
-    occurred_at: body.occurredAt,
-    metadata: body.metadata ?? {},
+    p_client_event_id: body.clientEventId,
+    p_kind: body.kind,
+    p_source_id: body.sourceId ?? null,
+    p_xp_delta: body.xpDelta,
+    p_occurred_at: body.occurredAt,
+    p_metadata: body.metadata ?? {},
   }, session.token);
   return json({ progress });
 }
@@ -302,10 +309,10 @@ async function handleProgressImport(request, supabase, session) {
   let summary;
   try {
     summary = await supabase.rpc('import_local_progress', {
-      xp: progress.xp,
-      current_streak: progress.currentStreak,
-      last_activity_date: progress.lastActivityDate ?? null,
-      completed_count: completedCount,
+      p_xp: progress.xp,
+      p_current_streak: progress.currentStreak,
+      p_last_activity_date: progress.lastActivityDate ?? null,
+      p_completed_count: completedCount,
     }, session.token);
   } catch (error) {
     translateRpcConflict(error, [
@@ -431,9 +438,9 @@ async function handleRoleplay(request, env, supabase, session, fetchImpl, now) {
   const body = await readBody(request);
   const turns = validate(body);
   await supabase.reserveAiUsage({
-    usage_date: now().toISOString().slice(0, 10),
-    user_limit: limit(env.AI_DAILY_USER_LIMIT),
-    global_limit: limit(env.AI_DAILY_GLOBAL_LIMIT),
+    p_usage_date: now().toISOString().slice(0, 10),
+    p_user_limit: limit(env.AI_DAILY_USER_LIMIT),
+    p_global_limit: limit(env.AI_DAILY_GLOBAL_LIMIT),
   }, session.token);
   const upstream = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
     method: 'POST',
@@ -443,7 +450,10 @@ async function handleRoleplay(request, env, supabase, session, fetchImpl, now) {
   if (upstream.status === 429) {
     return json({ ai: { status: 'limited' }, fallback: 'scripted', message: 'AI practice is limited right now. Try the scenario prompt and sample answer while the quota resets.' });
   }
-  if (!upstream.ok) throw new HttpError(502, 'UPSTREAM_ERROR');
+  if (!upstream.ok) {
+    console.error('Gemini upstream failed:', upstream.status, await upstream.text());
+    throw new HttpError(502, 'UPSTREAM_ERROR');
+  }
   const result = parseOutput(await upstream.json(), body, turns);
   return json(result);
 }

@@ -51,8 +51,8 @@ test('history and fixed generation settings are preserved; early goal is suppres
  const messages=[{role:'model',text:'Hello!'},{role:'user',text:'I want coffee.'}];
  const r=await a.play(messages,'reply');assert.equal(r.status,200);assert.equal(r.body.goalReached,false);
  assert.deepEqual(sent.body.contents.slice(1).map(m=>({role:m.role,text:m.parts[0].text})),messages);
- assert.match(sent.url,/gemini-2\.5-flash-lite:generateContent$/);assert.equal(sent.init.headers['x-goog-api-key'],'server-key');
- assert.equal(sent.body.generationConfig.thinkingConfig.thinkingBudget,0);
+ assert.match(sent.url,/gemini-3\.5-flash-lite:generateContent$/);assert.equal(sent.init.headers['x-goog-api-key'],'server-key');
+ assert.equal(sent.body.generationConfig.thinkingConfig,undefined);
  assert.equal(sent.body.generationConfig.responseMimeType,'application/json');
 });
 test('schema, finish reason and input validation reject unsafe results',async t=>{

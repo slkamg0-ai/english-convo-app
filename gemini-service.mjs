@@ -1,4 +1,4 @@
-export const MODEL = 'gemini-2.5-flash-lite';
+export const MODEL = 'gemini-3.5-flash-lite';
 
 const START_INSTRUCTION = 'Start the roleplay using the provided scenario data.';
 const SCENARIO_FIELDS = ['title', 'description', 'opening', 'openingKo', 'hint', 'hintKo'];
@@ -179,7 +179,6 @@ export function generation(data, turns) {
       responseMimeType: 'application/json',
       responseSchema: data.action === 'review' ? reviewSchema : turnSchema,
       maxOutputTokens: data.action === 'review' ? 2048 : 1024,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   };
 }

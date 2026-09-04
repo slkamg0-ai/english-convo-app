@@ -200,12 +200,12 @@ to authenticated
 using ((select auth.uid()) = user_id or public.is_admin());
 
 create or replace function public.record_activity(
-  client_event_id text,
-  kind text,
-  source_id text,
-  xp_delta integer,
-  occurred_at timestamptz,
-  metadata jsonb default '{}'::jsonb
+  p_client_event_id text,
+  p_kind text,
+  p_source_id text,
+  p_xp_delta integer,
+  p_occurred_at timestamptz,
+  p_metadata jsonb default '{}'::jsonb
 )
 returns public.progress_summaries
 language plpgsql
@@ -222,23 +222,23 @@ begin
     raise exception 'Authentication required' using errcode = '28000';
   end if;
 
-  if client_event_id is null or length(trim(client_event_id)) = 0 or length(client_event_id) > 128 then
+  if p_client_event_id is null or length(trim(p_client_event_id)) = 0 or length(p_client_event_id) > 128 then
     raise exception 'Invalid client event id' using errcode = '22023';
   end if;
 
-  if kind is null or kind !~ '^[a-z][a-z0-9_-]{1,63}$' then
+  if p_kind is null or p_kind !~ '^[a-z][a-z0-9_-]{1,63}$' then
     raise exception 'Invalid activity kind' using errcode = '22023';
   end if;
 
-  if xp_delta is null or xp_delta <= 0 or xp_delta > 100 then
+  if p_xp_delta is null or p_xp_delta <= 0 or p_xp_delta > 100 then
     raise exception 'Invalid XP delta' using errcode = '22023';
   end if;
 
-  if occurred_at is null or occurred_at > now() + interval '5 minutes' then
+  if p_occurred_at is null or p_occurred_at > now() + interval '5 minutes' then
     raise exception 'Invalid occurrence time' using errcode = '22023';
   end if;
 
-  event_date := occurred_at::date;
+  event_date := p_occurred_at::date;
 
   insert into public.activity_events (
     user_id,
@@ -251,12 +251,12 @@ begin
   )
   values (
     current_user_id,
-    trim(client_event_id),
-    kind,
-    nullif(trim(source_id), ''),
-    xp_delta,
-    occurred_at,
-    coalesce(metadata, '{}'::jsonb)
+    trim(p_client_event_id),
+    p_kind,
+    nullif(trim(p_source_id), ''),
+    p_xp_delta,
+    p_occurred_at,
+    coalesce(p_metadata, '{}'::jsonb)
   )
   on conflict (user_id, client_event_id) do nothing;
 
@@ -273,7 +273,7 @@ begin
     )
     values (
       current_user_id,
-      xp_delta,
+      p_xp_delta,
       1,
       event_date,
       1,
@@ -437,9 +437,9 @@ revoke all on function public.release_invite(uuid) from public;
 grant execute on function public.release_invite(uuid) to service_role;
 
 create or replace function public.reserve_ai_usage(
-  usage_date date,
-  user_limit integer,
-  global_limit integer
+  p_usage_date date,
+  p_user_limit integer,
+  p_global_limit integer
 )
 returns public.ai_usage_daily
 language plpgsql
@@ -455,27 +455,27 @@ begin
     raise exception 'Authentication required' using errcode = '28000';
   end if;
 
-  if usage_date is null or user_limit is null or user_limit < 1 or global_limit is null or global_limit < 1 then
+  if p_usage_date is null or p_user_limit is null or p_user_limit < 1 or p_global_limit is null or p_global_limit < 1 then
     raise exception 'Invalid AI usage limit' using errcode = '22023';
   end if;
 
-  perform pg_advisory_xact_lock(hashtext('ai_usage:' || usage_date::text));
+  perform pg_advisory_xact_lock(hashtext('ai_usage:' || p_usage_date::text));
 
   select coalesce(sum(request_count), 0)
   into global_count
   from public.ai_usage_daily
-  where ai_usage_daily.usage_date = reserve_ai_usage.usage_date;
+  where ai_usage_daily.usage_date = p_usage_date;
 
-  if coalesce(global_count, 0) >= global_limit then
+  if coalesce(global_count, 0) >= p_global_limit then
     raise exception 'AI usage limit reached' using errcode = '22023';
   end if;
 
   insert into public.ai_usage_daily (user_id, usage_date, request_count)
-  values (current_user_id, usage_date, 1)
+  values (current_user_id, p_usage_date, 1)
   on conflict (user_id, usage_date) do update
   set request_count = public.ai_usage_daily.request_count + 1
-  where public.ai_usage_daily.request_count < user_limit
-    and global_count < global_limit
+  where public.ai_usage_daily.request_count < p_user_limit
+    and global_count < p_global_limit
   returning *
   into updated_usage;
 
@@ -491,10 +491,10 @@ revoke all on function public.reserve_ai_usage(date, integer, integer) from publ
 grant execute on function public.reserve_ai_usage(date, integer, integer) to authenticated;
 
 create or replace function public.import_local_progress(
-  xp integer,
-  current_streak integer,
-  last_activity_date date,
-  completed_count integer
+  p_xp integer,
+  p_current_streak integer,
+  p_last_activity_date date,
+  p_completed_count integer
 )
 returns public.progress_summaries
 language plpgsql
@@ -511,15 +511,15 @@ begin
     raise exception 'Authentication required' using errcode = '28000';
   end if;
 
-  if xp is null or xp < 0 or xp > 1000000 then
+  if p_xp is null or p_xp < 0 or p_xp > 1000000 then
     raise exception 'Invalid XP value' using errcode = '22023';
   end if;
 
-  if current_streak is null or current_streak < 0 or current_streak > 100000 then
+  if p_current_streak is null or p_current_streak < 0 or p_current_streak > 100000 then
     raise exception 'Invalid streak value' using errcode = '22023';
   end if;
 
-  if completed_count is null or completed_count < 0 or completed_count > 1000000 then
+  if p_completed_count is null or p_completed_count < 0 or p_completed_count > 1000000 then
     raise exception 'Invalid completed count' using errcode = '22023';
   end if;
 
@@ -549,10 +549,10 @@ begin
   )
   values (
     current_user_id,
-    xp,
-    current_streak,
-    last_activity_date,
-    completed_count,
+    p_xp,
+    p_current_streak,
+    p_last_activity_date,
+    p_completed_count,
     now()
   )
   returning * into inserted_summary;

@@ -282,9 +282,13 @@ test('authenticated /api/progress calls Supabase RPC record_activity', async () 
     body: { clientEventId: 'event-1', kind: 'lesson_complete', sourceId: 'lesson-1', xpDelta: 50, occurredAt: '2026-09-04T00:00:00.000Z', metadata: { lesson: 1 } },
   }), env);
 
+  const rpcCall = calls.find(call => call.url.includes('/rest/v1/rpc/record_activity'));
+  assert.equal(rpcCall.init.headers.apikey, env.SUPABASE_ANON_KEY, 'apikey must be the project key, not the user JWT reused from Authorization');
+  assert.equal(rpcCall.init.headers.Authorization, 'Bearer user-token');
+
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { progress: { total_xp: 50, current_streak: 1 } });
-  assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.xp_delta, 50);
+  assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.p_xp_delta, 50);
 });
 
 test('GET /api/progress returns browser progress summary shape', async () => {
@@ -330,7 +334,7 @@ test('POST /api/progress/activity uses the same record_activity RPC contract', a
 
   assert.equal(response.status, 200);
   assert.equal((await response.json()).progress.total_xp, 50);
-  assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.client_event_id, 'event-1');
+  assert.equal(calls.find(call => call.url.includes('/rest/v1/rpc/record_activity')).body.p_client_event_id, 'event-1');
 });
 
 test('GET /api/rewards returns summary rules and claim eligibility', async () => {
@@ -462,6 +466,41 @@ test('/api/roleplay reserves daily usage before calling Gemini', async () => {
   assert.deepEqual(staleQuotaRpcs.map(rpcName => calls.some(call => call.url.includes(`/rest/v1/rpc/${rpcName}`))), [false, false]);
 });
 
+test('/api/roleplay maps a genuine reserve_ai_usage limit message to 429 AI_DAILY_LIMIT', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/reserve_ai_usage')) return responseJson({ code: '22023', message: 'AI usage limit reached' }, 400);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/roleplay', {
+    headers: authHeaders,
+    body: { action: 'start', scenario, level: 'beginner', messages: [] },
+  }), env);
+
+  assert.equal(response.status, 429);
+  assert.equal((await response.json()).error.code, 'AI_DAILY_LIMIT');
+});
+
+test('/api/roleplay does not mask an unrelated reserve_ai_usage failure as AI_DAILY_LIMIT', async () => {
+  const { fetchImpl } = createMockFetch(call => {
+    if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
+    if (call.url.includes('/rest/v1/rpc/reserve_ai_usage')) return responseJson({ code: 'PGRST202', message: 'Could not find the function public.reserve_ai_usage' }, 404);
+    throw new Error(`Unhandled mock URL: ${call.url}`);
+  });
+  const api = worker(fetchImpl);
+
+  const response = await api.fetch(request('/api/roleplay', {
+    headers: authHeaders,
+    body: { action: 'start', scenario, level: 'beginner', messages: [] },
+  }), env);
+
+  const body = await response.json();
+  assert.notEqual(body.error.code, 'AI_DAILY_LIMIT');
+  assert.equal(body.error.code, 'SUPABASE_ERROR');
+});
+
 test('Gemini 429 returns limited-mode response without leaking upstream text', async () => {
   const { fetchImpl } = createMockFetch(call => {
     if (call.url.endsWith('/auth/v1/user') || call.url.includes('/rest/v1/profiles')) return supabaseAuth(call);
@@ -500,7 +539,7 @@ test('POST /api/progress/import invokes Supabase RPC import_local_progress', asy
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { summary: { xp: 240, currentStreak: 2, totalActivities: 2 } });
   const rpcCall = calls.find(call => call.url.includes('/rest/v1/rpc/import_local_progress'));
-  assert.deepEqual(rpcCall.body, { xp: 240, current_streak: 2, last_activity_date: '2026-09-03', completed_count: 2 });
+  assert.deepEqual(rpcCall.body, { p_xp: 240, p_current_streak: 2, p_last_activity_date: '2026-09-03', p_completed_count: 2 });
 });
 
 test('POST /api/progress/import rejects an invalid payload without calling Supabase', async () => {
@@ -601,5 +640,30 @@ test('Worker RPC names are defined in Supabase migration', async () => {
   for (const rpcName of ['record_activity', 'claim_reward', 'reserve_invite', 'release_invite', 'reserve_ai_usage', 'import_local_progress']) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}\\b`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}\\(`));
+  }
+});
+
+test('RPC parameters never collide with the target table columns they write', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/0001_multi_user_rewards.sql', import.meta.url), 'utf8');
+
+  // A parameter named the same as a column it writes makes PL/pgSQL raise "column
+  // reference is ambiguous" (42702) the first time it runs against real Postgres —
+  // Node tests mock fetchImpl and never execute the SQL, so this is otherwise invisible.
+  const cases = [
+    { rpcName: 'record_activity', columns: ['client_event_id', 'kind', 'source_id', 'xp_delta', 'occurred_at', 'metadata'] },
+    { rpcName: 'reserve_ai_usage', columns: ['usage_date', 'request_count'] },
+    { rpcName: 'import_local_progress', columns: ['total_xp', 'current_streak', 'last_activity_date', 'completed_count'] },
+  ];
+
+  for (const { rpcName, columns } of cases) {
+    const signatureStart = migration.indexOf(`create or replace function public.${rpcName}(`);
+    assert.ok(signatureStart > -1, `${rpcName} not found`);
+    const signatureEnd = migration.indexOf(')', migration.indexOf('returns', signatureStart));
+    const signature = migration.slice(signatureStart, signatureEnd);
+    const paramNames = [...signature.matchAll(/^\s*(\w+)\s+\w/gm)].map(match => match[1]);
+    assert.ok(paramNames.length > 0, `${rpcName} signature was not parsed`);
+    for (const column of columns) {
+      assert.equal(paramNames.includes(column), false, `${rpcName} has a parameter literally named "${column}"`);
+    }
   }
 });
